@@ -100,7 +100,7 @@ class TimbreServiceImplTest {
         service.save(validTimbreData());
 
         verify(timbreDao).insert(argThat((TimbreEntity entity) ->
-                "测试音色".equals(entity.getName()) && entity.getSort() == 0L));
+                "Test timbre".equals(entity.getName()) && entity.getSort() == 0L));
     }
 
     @Test
@@ -123,7 +123,7 @@ class TimbreServiceImplTest {
     private TimbreDataDTO validTimbreData() {
         TimbreDataDTO dto = new TimbreDataDTO();
         dto.setLanguages("中文");
-        dto.setName("测试音色");
+        dto.setName("Test timbre");
         dto.setTtsModelId("TTS_Test");
         dto.setTtsVoice("test-voice");
         return dto;

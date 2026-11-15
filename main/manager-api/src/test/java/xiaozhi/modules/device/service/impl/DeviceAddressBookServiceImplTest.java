@@ -41,7 +41,7 @@ class DeviceAddressBookServiceImplTest {
     private static final String MAC = "00:11:22:33:44:55";
     private static final String OTHER_MAC = "00:11:22:33:44:66";
     private static final String THIRD_MAC = "00:11:22:33:44:77";
-    // 纯数字的 MAC 大小写化后跟原来一模一样，拿它造不出"只差大小写"的两行
+    // An all-digit MAC is identical after case conversion, so it cannot produce two rows "differing only in case"
     private static final String HEX_MAC = "00:11:22:33:44:ab";
 
     @Test
@@ -111,7 +111,7 @@ class DeviceAddressBookServiceImplTest {
         ArgumentCaptor<DeviceAddressBookEntity> entityCaptor = ArgumentCaptor.forClass(DeviceAddressBookEntity.class);
         verify(addressBookDao).insertAddressBook(entityCaptor.capture());
         assertEquals("尾号为66的设备", entityCaptor.getValue().getAlias(),
-                "登记了但没起名的设备落个空名，缓存刷新会跳过这条，对方永远呼不过来");
+                "A registered but unnamed device gets an empty name, the cache refresh skips this row, and the other party can never call in");
         verify(deviceService, never()).getDeviceByMacAddress(anyString());
         verify(deviceService, never()).getOwnedDeviceByMacAddress(anyString());
     }
@@ -137,7 +137,7 @@ class DeviceAddressBookServiceImplTest {
         ArgumentCaptor<DeviceAddressBookEntity> entityCaptor = ArgumentCaptor.forClass(DeviceAddressBookEntity.class);
         verify(addressBookDao).insertAddressBook(entityCaptor.capture());
         assertEquals("尾号为66的设备", entityCaptor.getValue().getAlias(),
-                "对方在智控台上给这台设备起的名字被抄进了调用方的通讯录");
+                "The name the other party gave this device in the control console was copied into the caller's address book");
         verify(deviceService, never()).getDeviceByMacAddress(anyString());
         verify(deviceService, never()).getOwnedDeviceByMacAddress(anyString());
     }
@@ -162,7 +162,7 @@ class DeviceAddressBookServiceImplTest {
         ArgumentCaptor<DeviceAddressBookEntity> entityCaptor = ArgumentCaptor.forClass(DeviceAddressBookEntity.class);
         verify(addressBookDao).insertAddressBook(entityCaptor.capture());
         assertEquals("我的书房", entityCaptor.getValue().getAlias(),
-                "给自己那台设备起名，用的就是自己设备表里的名字");
+                "When naming one's own device, the name in one's own device table is used");
     }
 
     @Test
@@ -185,7 +185,7 @@ class DeviceAddressBookServiceImplTest {
         ArgumentCaptor<DeviceAddressBookEntity> entityCaptor = ArgumentCaptor.forClass(DeviceAddressBookEntity.class);
         verify(addressBookDao).insertAddressBook(entityCaptor.capture());
         assertEquals("尾号为55的设备", entityCaptor.getValue().getAlias(),
-                "自己的设备在设备表里也没起名，落个空名的话缓存刷新会跳过这条");
+                "One's own device has no name in the device table either; with an empty name the cache refresh would skip this row");
     }
 
     @Test
@@ -198,21 +198,21 @@ class DeviceAddressBookServiceImplTest {
                 addressBookDao, redisUtils, deviceService, sysParamsService);
         when(addressBookDao.selectOne(any())).thenReturn(null);
         when(addressBookDao.selectList(null)).thenReturn(List.of());
-        // 设备表里同一个 MAC 有两行只差大小写，一次只准取一条的那种查法会直接抛异常
+        // The device table has two rows for the same MAC differing only in case; a lookup that allows only one row throws directly
         when(deviceService.getDeviceByMacAddress(anyString()))
-                .thenThrow(new TooManyResultsException("selectOne 撞上两行只差大小写的数据"));
+                .thenThrow(new TooManyResultsException("selectOne hit two rows differing only in case"));
         DeviceEntity first = new DeviceEntity();
         first.setMacAddress(MAC);
         first.setAlias("我的书房");
         when(deviceService.getOwnedDeviceByMacAddress(MAC)).thenReturn(first);
 
         assertDoesNotThrow(() -> service.saveOrUpdate(MAC, MAC, null, true),
-                "同 MAC 有两行只差大小写时，取名不能把整个接口带崩");
+                "When the same MAC has two rows differing only in case, naming must not crash the whole API");
 
         ArgumentCaptor<DeviceAddressBookEntity> entityCaptor = ArgumentCaptor.forClass(DeviceAddressBookEntity.class);
         verify(addressBookDao).insertAddressBook(entityCaptor.capture());
         assertEquals("我的书房", entityCaptor.getValue().getAlias(),
-                "撞行时按 id 取第一条那条的名字");
+                "On colliding rows, the name of the first row by id is used");
     }
 
     @Test
@@ -235,7 +235,7 @@ class DeviceAddressBookServiceImplTest {
         ArgumentCaptor<DeviceAddressBookEntity> entityCaptor = ArgumentCaptor.forClass(DeviceAddressBookEntity.class);
         verify(addressBookDao).insertAddressBook(entityCaptor.capture());
         assertEquals("我的书房", entityCaptor.getValue().getAlias(),
-                "同一个地址写成大小写两种样子，就被当成别人的设备了");
+                "The same address written in two different cases was treated as someone else's device");
     }
 
     @Test
@@ -254,7 +254,7 @@ class DeviceAddressBookServiceImplTest {
         ArgumentCaptor<DeviceAddressBookEntity> entityCaptor = ArgumentCaptor.forClass(DeviceAddressBookEntity.class);
         verify(addressBookDao).insertAddressBook(entityCaptor.capture());
         assertEquals("客厅", entityCaptor.getValue().getAlias(),
-                "自己给别人的设备起名是通讯录的本意，不能被兜底逻辑改掉");
+                "Naming someone else's device oneself is the purpose of the address book and must not be changed by the fallback logic");
         verify(deviceService, never()).getDeviceByMacAddress(anyString());
         verify(deviceService, never()).getOwnedDeviceByMacAddress(anyString());
     }
@@ -272,7 +272,7 @@ class DeviceAddressBookServiceImplTest {
         when(deviceService.getOwnedDeviceByMacAddress(anyString())).thenReturn(null);
 
         assertDoesNotThrow(() -> service.saveOrUpdate(MAC, OTHER_MAC, null, true),
-                "目标设备没登记时接口得正常返回，不能抛异常");
+                "When the target device is not registered the API must return normally and must not throw");
 
         ArgumentCaptor<DeviceAddressBookEntity> entityCaptor = ArgumentCaptor.forClass(DeviceAddressBookEntity.class);
         verify(addressBookDao).insertAddressBook(entityCaptor.capture());
@@ -290,7 +290,7 @@ class DeviceAddressBookServiceImplTest {
         service.refreshCache();
 
         Map<String, String> book = cachedBook(service, redisUtils).get(MAC);
-        assertNotNull(book, "空别名整条被跳过，这条设备就再也呼不过来了");
+        assertNotNull(book, "The whole row was skipped for an empty alias, so this device can never be called again");
         assertEquals(OTHER_MAC + "|1", book.get("尾号为66的设备"));
     }
 
@@ -307,7 +307,7 @@ class DeviceAddressBookServiceImplTest {
         service.refreshCache();
 
         Map<String, String> book = cachedBook(service, redisUtils).get(MAC);
-        assertEquals(2, book.size(), "撞名的两台设备只留得下一台：" + book);
+        assertEquals(2, book.size(), "Only one of the two devices with colliding names survived: " + book);
         assertEquals(OTHER_MAC + "|1", book.get("客厅"));
         assertEquals(THIRD_MAC + "|1", book.get("客厅1"));
     }
@@ -320,29 +320,29 @@ class DeviceAddressBookServiceImplTest {
         Map<String, String> inOrder = refreshAndRead(List.of(first, second));
         Map<String, String> reversed = refreshAndRead(List.of(second, first));
 
-        assertEquals(inOrder, reversed, "同样的数据两次刷新结果不一样，缓存里的称呼会来回变");
+        assertEquals(inOrder, reversed, "The same data gave different results on two refreshes; the names in the cache would flip back and forth");
     }
 
     /**
-     * 库里能同时存在两条 owner 只差大小写的行：表是 utf8mb4_0900_ai_ci，
-     * 主键 (mac_address, target_mac) 大小写不敏感，target 不同就不会撞。
-     * 这是同一个人，算称呼和写缓存都得按小写归成一本
+     * The database can hold two rows whose owner differs only in case: the table is utf8mb4_0900_ai_ci,
+     * the primary key (mac_address, target_mac) is case-insensitive, and rows do not collide when target differs.
+     * This is the same person; computing names and writing the cache must both merge them into one book by lowercase
      */
     @Test
     void ownersDifferingOnlyInCaseShareOneBook() {
         String upper = HEX_MAC.toUpperCase();
-        assertNotEquals(HEX_MAC, upper, "这个用例得真的造出大小写差异才有效");
+        assertNotEquals(HEX_MAC, upper, "This case is only valid if a real case difference is produced");
 
         Map<String, Map<String, String>> books = refreshAndReadAll(List.of(
                 row(upper, OTHER_MAC, "客厅"),
                 row(HEX_MAC, THIRD_MAC, "客厅")));
 
         Map<String, String> book = books.get(HEX_MAC);
-        assertNotNull(book, "同一个人被算成了两个人：" + books.keySet());
-        assertEquals(2, book.size(), "两台设备只剩一台，另一台从缓存里消失了：" + book);
+        assertNotNull(book, "The same person was counted as two people: " + books.keySet());
+        assertEquals(2, book.size(), "Only one of the two devices is left; the other disappeared from the cache: " + book);
         assertEquals(OTHER_MAC + "|1", book.get("客厅"));
         assertEquals(THIRD_MAC + "|1", book.get("客厅1"));
-        assertEquals(1, books.size(), "两种写法的地址被拆成了两本：" + books.keySet());
+        assertEquals(1, books.size(), "The two spellings of the address were split into two books: " + books.keySet());
     }
 
     @Test
@@ -359,7 +359,7 @@ class DeviceAddressBookServiceImplTest {
 
         Map<String, String> shownToConsole = namesByTargetMac(service.getAddressBookList(upper));
         assertEquals(2, shownToConsole.size(),
-                "接口按原值分组，同一个人的两台设备被算成一个，前端只能看到一台：" + shownToConsole);
+                "The API groups by the raw value, the two devices of the same person are counted as one, and the frontend sees only one: " + shownToConsole);
 
         service.refreshCache();
         Map<String, String> callableNames = new HashMap<>();
@@ -367,7 +367,7 @@ class DeviceAddressBookServiceImplTest {
                 .forEach((name, macAndPerm) -> callableNames.put(name, macAndPerm.split("\\|")[0]));
 
         assertEquals(shownToConsole, callableNames,
-                "接口按原值分组、缓存按小写分组，用户照前端看到的名字呼，命中的不是同一台设备");
+                "The API groups by the raw value and the cache by lowercase; a call by the name the user sees in the frontend does not hit the same device");
     }
 
     @Test
@@ -381,8 +381,8 @@ class DeviceAddressBookServiceImplTest {
                 row(upper, THIRD_MAC, "客厅"), row(HEX_MAC, OTHER_MAC, "客厅")));
 
         assertEquals(expected, lowerFirst,
-                "同一个人的称呼取决于库里哪种写法先返回，刷新一次就换一次名字");
-        assertEquals(expected, upperFirst, "顺序反过来结果就该不一样：" + upperFirst);
+                "The same person's names depend on which spelling the database returns first, and change on every refresh");
+        assertEquals(expected, upperFirst, "With the order reversed the result should differ: " + upperFirst);
     }
 
     @SuppressWarnings("unchecked")
@@ -430,8 +430,8 @@ class DeviceAddressBookServiceImplTest {
     void listAndCacheHandOutTheSameNameForCollidingEntries() {
         DeviceAddressBookDao addressBookDao = mock(DeviceAddressBookDao.class);
         RedisUtils redisUtils = mock(RedisUtils.class);
-        // 两次 DAO 调用各给一份新行：取名会写回实体，共用同一份的话第二遍读到的是算过的名字
-        // 用可变列表，跟 MyBatis 实际返回的一致，免得排序那步先炸掉、断言根本没跑到
+        // Each of the two DAO calls gets fresh rows: naming writes back to the entities, so with shared rows the second pass would read already-computed names
+        // Use a mutable list, consistent with what MyBatis actually returns, so the sort step does not blow up first and leave the assertions unreached
         when(addressBookDao.getAddressBookList(MAC)).thenReturn(
                 new ArrayList<>(List.of(row(MAC, OTHER_MAC, "客厅"), row(MAC, THIRD_MAC, "客厅"))));
         when(addressBookDao.selectList(null)).thenReturn(List.of(
@@ -446,14 +446,14 @@ class DeviceAddressBookServiceImplTest {
                 .forEach((name, macAndPerm) -> callableNames.put(name, macAndPerm.split("\\|")[0]));
 
         assertEquals(callableNames, shownToConsole,
-                "接口和缓存给的是两个名字，用户照前端看到的那个名字呼叫，命中的不是同一台设备");
+                "The API and the cache give two different names; a call by the name the user sees in the frontend does not hit the same device");
     }
 
     @Test
     void theCallableEntryKeepsThePlainNameWhenTwoCollide() {
         DeviceAddressBookDao addressBookDao = mock(DeviceAddressBookDao.class);
         RedisUtils redisUtils = mock(RedisUtils.class);
-        // OTHER_MAC 的 target_mac 排在前面，没权限的那条会先占住原名
+        // OTHER_MAC's target_mac sorts first, so the row without permission would take the original name first
         when(addressBookDao.selectList(null)).thenReturn(List.of(
                 row(MAC, OTHER_MAC, "客厅", Boolean.FALSE),
                 row(MAC, THIRD_MAC, "客厅", Boolean.TRUE)));
@@ -464,7 +464,7 @@ class DeviceAddressBookServiceImplTest {
 
         Map<String, String> book = cachedBook(service, redisUtils).get(MAC);
         assertEquals(THIRD_MAC + "|1", book.get("客厅"),
-                "能呼的那台被挤到后缀名上了，用户照前端看到的名字点，界面只会说没权限");
+                "The callable device was pushed to the suffixed name; when the user taps the name shown in the frontend, the UI only says no permission");
         assertEquals(OTHER_MAC + "|0", book.get("客厅1"));
     }
 
@@ -479,16 +479,16 @@ class DeviceAddressBookServiceImplTest {
         List<DeviceAddressBookEntity> rows = service.getAddressBookList(MAC);
 
         assertEquals("尾号为66的设备", rows.get(0).getAlias(),
-                "空别名原样返回的话前端回落显示设备名，用户照着那个名字呼叫却只会说找不到备注");
+                "If an empty alias is returned as is, the frontend falls back to showing the device name, but a call by that name only says the remark was not found");
     }
 
     @Test
     void anUppercaseMacGetsTheSameNameWhicheverPathAddsItToTheBook() {
-        // 兜底称呼只有这一处算法：存进去的时候算一次，之后接口和缓存里显示的
-        // 都是同一个字符串。不跟着小写化的话同一个地址在两条路径上算出两个称呼，
-        // 用户照着看到的名字呼过去，命中的不是自己刚存的那台
+        // The fallback name has only this one algorithm: it is computed once when stored, and afterwards the API and the cache
+        // show the same string. Without lowercasing too, the same address yields two names on the two paths,
+        // and a call by the name the user sees does not hit the device they just saved
         //
-        // 运行期这一侧：saveOrUpdate 传的是 DTO 原样过来的地址，大小写没归一
+        // The runtime side: saveOrUpdate is passed the address exactly as it came in the DTO, with case not normalized
         DeviceAddressBookDao addressBookDao = mock(DeviceAddressBookDao.class);
         RedisUtils redisUtils = mock(RedisUtils.class);
         DeviceService deviceService = mock(DeviceService.class);
@@ -503,16 +503,16 @@ class DeviceAddressBookServiceImplTest {
         ArgumentCaptor<DeviceAddressBookEntity> entityCaptor = ArgumentCaptor.forClass(DeviceAddressBookEntity.class);
         verify(addressBookDao).insertAddressBook(entityCaptor.capture());
         assertEquals("尾号为ab的设备", entityCaptor.getValue().getAlias(),
-                "MAC 大小写不区分，末尾两位要跟着小写化，否则接口和呼叫那边算出来的称呼对不上");
+                "MAC is case-insensitive, so the last two characters must be lowercased too; otherwise the names computed by the API and the calling side do not match");
     }
 
     /**
-     * 接口按最近改过的排前面
+     * The API puts the most recently modified first
      *
      * <p>
-     * 智控台那条 Vue 是按 targetMac 把 alias 合进 allDevices 的，接口顺序被丢掉了，
-     * 这条现在对 console 没有效果。用例留着是把这个契约钉住：哪天当无用代码删了，
-     * 会有用例报出来，而不是静悄悄换掉接口的返回顺序
+     * The control console Vue page merges alias into allDevices by targetMac, discarding the API order,
+     * so this currently has no effect on the console. The case stays to pin down this contract: if it is ever deleted as dead code,
+     * a case will report it instead of the API's return order changing silently
      */
     @Test
     void listPutsTheMostRecentlyTouchedEntryFirst() {
@@ -531,7 +531,7 @@ class DeviceAddressBookServiceImplTest {
         List<DeviceAddressBookEntity> rows = service.getAddressBookList(MAC);
 
         assertEquals(List.of("书房", "客厅", "阳台"), rows.stream().map(DeviceAddressBookEntity::getAlias).toList(),
-                "最近改过的应该排前面，没改过的排最后");
+                "The most recently modified should come first, and the never-modified last");
     }
 
 
@@ -561,7 +561,7 @@ class DeviceAddressBookServiceImplTest {
         when(sysParamsService.getValue("server.mqtt_manager_api", true)).thenReturn("127.0.0.1:1883");
         when(sysParamsService.getValue(Constant.SERVER_MQTT_SECRET, true)).thenReturn("gateway-key");
 
-        // 网关是真的 http 调用，桩掉它，否则测试会往 127.0.0.1:1883 真发请求
+        // The gateway is a real http call; stub it, otherwise the test would send a real request to 127.0.0.1:1883
         AtomicReference<String> sentUrl = new AtomicReference<>();
         AtomicReference<String> sentBody = new AtomicReference<>();
         Map<String, Object> result;
@@ -579,6 +579,6 @@ class DeviceAddressBookServiceImplTest {
         assertEquals("success", result.get("status"));
         assertEquals("http://127.0.0.1:1883/api/call/request", sentUrl.get());
         assertTrue(sentBody.get().contains("尾号为55的设备"),
-                "主叫方没登记也没起名时该退回尾号称呼：" + sentBody.get());
+                "When the caller is neither registered nor named, it should fall back to the tail-number name: " + sentBody.get());
     }
 }

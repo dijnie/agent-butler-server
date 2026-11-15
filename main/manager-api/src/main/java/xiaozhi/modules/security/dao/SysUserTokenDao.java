@@ -9,8 +9,8 @@ import xiaozhi.common.dao.BaseDao;
 import xiaozhi.modules.security.entity.SysUserTokenEntity;
 
 /**
- * 系统用户Token
- * Copyright (c) 人人开源 All rights reserved.
+ * System user Token
+ * Copyright (c) Renren Open Source All rights reserved.
  * Website: https://www.renren.io
  */
 @Mapper
@@ -23,8 +23,8 @@ public interface SysUserTokenDao extends BaseDao<SysUserTokenEntity> {
     void logout(@Param("userId") Long userId, @Param("expireDate") Date expireDate);
 
     /**
-     * 用旧 token 换新 token 的 CAS 更新：仅当旧 token 未过期且属于指定 user 时才覆盖。
-     * 返回受影响行数（0 表示条件不满足 = token 已被并发刷新或过期）。
+     * CAS update exchanging the old token for a new token: overwrite only when the old token has not expired and belongs to the specified user.
+     * Returns the number of affected rows (0 means the condition was not met = the token was already refreshed concurrently or has expired).
      */
     int refreshTokenCAS(@Param("userId") Long userId,
             @Param("oldToken") String oldToken,

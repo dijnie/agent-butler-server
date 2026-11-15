@@ -4,7 +4,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
- * LLM的模型的基础展示数据
+ * Basic display data of LLM models
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
