@@ -44,10 +44,10 @@ class CorrectWordFileServiceImplTest {
 
     @BeforeAll
     static void registerEntityMetadata() {
-        // 这条用例不起 Spring 上下文，MyBatis-Plus 的实体元数据没人注册，
-        // LambdaQueryWrapper 拼条件时找不到 lambda 缓存就抛异常。
-        // 全量跑的时候是前面的上下文测试顺带注册好的，单独跑就露馅。
-        // 这里自己补上，单独跑和跟着全量跑结果一样。
+        // This case does not start a Spring context, so nobody registers the MyBatis-Plus entity metadata,
+        // and LambdaQueryWrapper throws when it cannot find the lambda cache while building conditions.
+        // In a full run an earlier context test registers it as a side effect; run alone, the gap shows.
+        // Register it here ourselves, so running alone gives the same result as running in the full suite.
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""),
                 CorrectWordItemEntity.class);

@@ -1,41 +1,41 @@
-# 语音识别、流式语音识别、大语言模型、非流式语音合成、流式语音合成、视觉模型的性能测试工具使用指南
+# Usage Guide for the Performance Test Tool for Speech Recognition, Streaming Speech Recognition, Large Language Models, Non-Streaming Speech Synthesis, Streaming Speech Synthesis, and Vision Models
 
-0.先装依赖（在仓库根目录执行）
+0. Install the dependencies first (run from the repository root)
 ```
 cd main/xiaozhi-server
 pip install -r requirements.txt
 ```
-测试脚本要 import `yaml`、`aiohttp`、`tabulate`，少一个都起不来。`tabulate` 不在 requirements.txt 里，是 `edge-tts` 间接带进来的。
+The test script imports `yaml`, `aiohttp`, and `tabulate`, and it will not start if any one is missing. `tabulate` is not in requirements.txt; it is pulled in indirectly by `edge-tts`.
 
-1.在main/xiaozhi-server目录下创建data目录
-2.在data目录下创建.config.yaml文件
-3.在data/.config.yaml中，写入你的语音识别、流式语音识别、大语言模型、非流式语音合成、流式语音合成、视觉模型的参数
-例如：
+1. Create a data directory in the main/xiaozhi-server directory
+2. Create a .config.yaml file in the data directory
+3. In data/.config.yaml, write the parameters for your speech recognition, streaming speech recognition, large language model, non-streaming speech synthesis, streaming speech synthesis, and vision model
+For example:
 ```
 LLM:
   ChatGLMLLM:
-    # 定义LLM API类型
+    # Define the LLM API type
     type: openai
-    # glm-4-flash 是免费的，但是还是需要注册填写api_key的
-    # 可在这里找到你的api key https://bigmodel.cn/usercenter/proj-mgmt/apikeys
+    # glm-4-flash is free, but you still need to register and fill in an api_key
+    # You can find your api key here https://bigmodel.cn/usercenter/proj-mgmt/apikeys
     model_name: glm-4-flash
     url: https://open.bigmodel.cn/api/paas/v4/
-    api_key: 你的chat-glm web key
+    api_key: your chat-glm web key
 
 TTS:
   EdgeTTS:
-    # 定义TTS API类型
+    # Define the TTS API type
     type: edge
     voice: zh-CN-XiaoxiaoNeural
 
 VLLM:
   ChatGLMVLLM:
-    # 定义视觉模型API类型
+    # Define the vision model API type
     type: openai
-    # glm-4v-flash 是智谱的视觉模型，需要在智谱平台申请api_key
+    # glm-4v-flash is Zhipu's vision model; you need to apply for an api_key on the Zhipu platform
     model_name: glm-4v-flash
     url: https://open.bigmodel.cn/api/paas/v4/
-    api_key: 你的api_key
+    api_key: your api_key
 
 ASR:
   FunASR:
@@ -43,30 +43,30 @@ ASR:
     model_dir: models/SenseVoiceSmall
     language: auto
 ```
-4.在main/xiaozhi-server目录下运行performance_tester.py: 
+4. Run performance_tester.py in the main/xiaozhi-server directory:  
 ```
 python performance_tester.py
 ```
 
-## 几点说明
+## Notes
 
-- 脚本第一行提示的 `docs/performance_tester.md` 就是本文档，它在仓库根目录的 `docs/` 下；脚本本身在 `main/xiaozhi-server/` 目录里跑，两处不是一个目录。
-- LLM、VLLM、非流式语音合成这三项会把 `config.yaml` 和 `data/.config.yaml` 两份配置合并起来再遍历，所以实际会测**所有配好 api_key 的供应器**，不只是你在 `.config.yaml` 里写的那一个；api_key 还是占位符的会被跳过。
-- 非流式的语音识别这一项读配置的方式和别的不一样：它自己扫 `data/` 目录下的 `*.config.yaml`，只取其中的 `ASR` 段，**不会**用 `config.yaml` 里的默认值。想测语音识别，就得把供应器写进 `data/.config.yaml`。
-- 流式语音识别读的是合并后的配置，固定测 `DoubaoStreamASR`、`Qwen3ASRFlash`、`XunfeiStreamASR` 这三家。`config.yaml` 里这三项带的 key 是占位符，要在 `data/.config.yaml` 的 `ASR` 段里填上自己的 key 才会测出延迟。
-- 视觉模型的配置写在 `data/.config.yaml` 的 `VLLM:` 段里，这段**不能只写一个空键**：写空的话合并后整段是空的，这项测试会直接跳过、什么都不测。
-- 流式语音合成一次会跑这些供应器：
+- The `docs/performance_tester.md` mentioned in the first line of the script's output is this document, which is under `docs/` in the repository root; the script itself runs from the `main/xiaozhi-server/` directory, so the two are not in the same directory.
+- For LLM, VLLM, and non-streaming speech synthesis, the script merges `config.yaml` and `data/.config.yaml` and then iterates over the result, so it actually tests **every provider that has an api_key configured**, not only the one you wrote in `.config.yaml`; providers whose api_key is still a placeholder are skipped.
+- Non-streaming speech recognition reads its configuration differently from the others: it scans `*.config.yaml` files under the `data/` directory itself and takes only their `ASR` section; it does **not** use the defaults in `config.yaml`. To test speech recognition, you must write the provider into `data/.config.yaml`.
+- Streaming speech recognition reads the merged configuration and always tests these three: `DoubaoStreamASR`, `Qwen3ASRFlash`, and `XunfeiStreamASR`. The keys for these three in `config.yaml` are placeholders; you must fill in your own keys in the `ASR` section of `data/.config.yaml` for latency to be measured.
+- The vision model configuration goes in the `VLLM:` section of `data/.config.yaml`. This section **must not be just an empty key**: if it is empty, the whole merged section is empty, and this test is skipped and tests nothing.
+- Streaming speech synthesis runs these providers in one pass:
 
-| 供应器 | 说明 |
+| Provider | Description |
 |---|---|
-| `AliyunStreamTTS` | 阿里云流式 TTS，无条件调用 |
-| `HuoshanDoubleStreamTTS` | 火山引擎流式 TTS，无条件调用 |
-| `PaddleSpeechTTS` | PaddleSpeech 流式 TTS，无条件调用 |
-| `IndexStreamTTS` | IndexStream 流式 TTS，无条件调用 |
-| `LinkeraiTTS` | `config.yaml` 的 TTS 段里没有这个供应器，默认不测、整项跳过；要测得自己在 `.config.yaml` 里补上 |
-| `AliBLTTS` | 阿里百炼流式 TTS，默认就会测：判断读的是合并后的配置，`config.yaml` 里本来就带着这一项 |
-| `XunFeiTTS` | 讯飞流式 TTS，同上，默认就会测 |
+| `AliyunStreamTTS` | Alibaba Cloud streaming TTS, called unconditionally |
+| `HuoshanDoubleStreamTTS` | Volcano Engine streaming TTS, called unconditionally |
+| `PaddleSpeechTTS` | PaddleSpeech streaming TTS, called unconditionally |
+| `IndexStreamTTS` | IndexStream streaming TTS, called unconditionally |
+| `LinkeraiTTS` | The TTS section of `config.yaml` does not contain this provider, so it is not tested by default and the whole item is skipped; to test it, add it yourself in `.config.yaml` |
+| `AliBLTTS` | Alibaba Bailian streaming TTS, tested by default: the check reads the merged configuration, and `config.yaml` already contains this item |
+| `XunFeiTTS` | iFlytek streaming TTS, same as above, tested by default |
 
-`AliBLTTS` 和 `XunFeiTTS` 这两项默认带的 key 是占位符，不在 `.config.yaml` 里换成自己的 key 就会报失败；想直接跳过，把这两项在 `.config.yaml` 里写成空的（键名下面不填内容）就行。
+The default keys for `AliBLTTS` and `XunFeiTTS` are placeholders, so unless you replace them with your own keys in `.config.yaml` they report failure. To skip them, write both in `.config.yaml` as empty (leave nothing under the key name).
 
-标了「无条件调用」的这几个（`AliyunStreamTTS`、`HuoshanDoubleStreamTTS`、`PaddleSpeechTTS`、`IndexStreamTTS`），供应器缺失或被清空时，那一项会报错，错误被测试方法内部的异常处理吃掉，这一项被记成失败 —— 结果表里会多出一行失败记录，但不影响其它项。带守卫的那几家（`AliBLTTS`、`XunFeiTTS`、`LinkeraiTTS`）是整项跳过：没配就不报错、结果表里也不会有这一行。
+For the ones marked "called unconditionally" (`AliyunStreamTTS`, `HuoshanDoubleStreamTTS`, `PaddleSpeechTTS`, `IndexStreamTTS`), if the provider is missing or cleared, that item raises an error, which is swallowed by the exception handling inside the test method and the item is recorded as a failure: an extra failure row appears in the results table, but it does not affect the other items. The ones with a guard (`AliBLTTS`, `XunFeiTTS`, `LinkeraiTTS`) are skipped entirely: if not configured, there is no error and no row in the results table either.

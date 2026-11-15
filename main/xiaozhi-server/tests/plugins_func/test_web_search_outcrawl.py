@@ -54,11 +54,11 @@ class FakeConn:
 
 
 async def test_outcrawl_sends_bearer_key_and_limit(fake_http):
-    await web_search_module._search_outcrawl("oc-key", "上海天气", 5)
+    await web_search_module._search_outcrawl("oc-key", "Shanghai weather", 5)
 
     [request] = fake_http.requests
     assert request["url"] == "https://api.outcrawl.ai/v1/search"
-    assert request["json"] == {"query": "上海天气", "limit": 5}
+    assert request["json"] == {"query": "Shanghai weather", "limit": 5}
     assert request["headers"]["Authorization"] == "Bearer oc-key"
     assert request["headers"]["User-Agent"] == "xiaozhi-esp32-server"
 
@@ -74,9 +74,9 @@ async def test_outcrawl_formats_titles_and_snippets_without_urls(fake_http):
     fake_http.response = FakeResponse(
         payload={
             "hits": [
-                {"url": "https://a.example/1", "title": "标题一", "snippet": "摘要一", "rank": 1},
+                {"url": "https://a.example/1", "title": "Title one", "snippet": "Snippet one", "rank": 1},
                 {"url": "https://a.example/2", "title": None, "snippet": "", "rank": 2},
-                {"url": "https://a.example/3", "title": "标题三", "snippet": "摘要三", "rank": 3},
+                {"url": "https://a.example/3", "title": "Title three", "snippet": "Snippet three", "rank": 3},
             ],
             "usage": {"credits": "1.5"},
         }
@@ -84,23 +84,23 @@ async def test_outcrawl_formats_titles_and_snippets_without_urls(fake_http):
 
     result = await web_search_module._search_outcrawl("oc-key", "q", 2)
 
-    assert result == "【联网搜索结果】\n1. 标题：标题一\n   摘要：摘要一\n2. 标题：无标题"
+    assert result == "[Web search results]\n1. Title: Title one\n   Snippet: Snippet one\n2. Title: Untitled"
     assert "https://" not in result
 
 
 async def test_outcrawl_empty_hits(fake_http):
     fake_http.response = FakeResponse(payload={"hits": []})
 
-    assert await web_search_module._search_outcrawl("oc-key", "q", 3) == "未找到相关搜索结果。"
+    assert await web_search_module._search_outcrawl("oc-key", "q", 3) == "No relevant search results found."
 
 
 @pytest.mark.parametrize(
     ("code", "message"),
     [
-        ("unauthorized", "联网搜索请求失败，请检查API Key是否正确。"),
-        ("quota_exceeded", "联网搜索被限流或额度已用完，请稍后重试或检查Outcrawl账户余额。"),
-        ("bad_request", "联网搜索请求失败，请稍后重试。"),
-        ("internal", "联网搜索请求失败，请稍后重试。"),
+        ("unauthorized", "Web search request failed, please check whether the API Key is correct."),
+        ("quota_exceeded", "Web search is rate-limited or the quota is used up, please try again later or check your Outcrawl account balance."),
+        ("bad_request", "Web search request failed, please try again later."),
+        ("internal", "Web search request failed, please try again later."),
     ],
 )
 async def test_outcrawl_error_code(fake_http, code, message):
@@ -118,5 +118,5 @@ async def test_web_search_dispatches_to_outcrawl(fake_http):
     response = await web_search_module.web_search(conn, "q")
 
     assert response.action == Action.REQLLM
-    assert response.result == "【联网搜索结果】\n1. 标题：T\n   摘要：S"
+    assert response.result == "[Web search results]\n1. Title: T\n   Snippet: S"
     assert fake_http.requests[0]["json"] == {"query": "q", "limit": 3}

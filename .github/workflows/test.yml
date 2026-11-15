@@ -22,9 +22,9 @@ jobs:
           cache-dependency-path: 'main/xiaozhi-server/requirements.txt'
       - name: Install system dependencies
         run: |
-          # opuslib_next 是 ctypes 绑定，pip 装上的是纯 Python 包，真正的编解码
-          # 靠系统里的 libopus.so。runner 上默认没有，import 会失败，音频相关的
-          # 用例直接报错。正式镜像 Dockerfile-server-base 里也是装 libopus0 的
+          # opuslib_next is a ctypes binding; what pip installs is a pure Python package, and the real encoding/decoding
+          # relies on the system libopus.so. The runner does not have it by default, so import fails and audio-related
+          # test cases error out directly. The production image Dockerfile-server-base also installs libopus0
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libopus0
       - name: Install dependencies
@@ -35,21 +35,21 @@ jobs:
       - name: Prepare test config
         working-directory: main/xiaozhi-server
         run: |
-          # config/settings.py 在 import 期就要这个文件，缺了整套用例连收集都过不去。
-          # data/ 在 .gitignore 里，只能由这一步现造
+          # config/settings.py needs this file at import time; without it the whole test suite cannot even be collected.
+          # data/ is in .gitignore, so this step has to create it on the fly
           mkdir -p data
           printf '{}\n' > data/.config.yaml
       - name: Run tests
         working-directory: main/xiaozhi-server
         run: |
-          # Edge TTS 那条要连微软公网，runner 的出口 IP 会被风控挡掉，先排除。
-          # 根治办法是给它打 live 标记，让 mock 模式下自动不收（另开一条改）
+          # The Edge TTS case needs to reach Microsoft's public network, and the runner's egress IP gets blocked by risk control, so exclude it for now.
+          # The permanent fix is to mark it as live so it is automatically not collected in mock mode (to be changed separately)
           pytest tests/ -v -k "not test_tts_text_to_speak_writes_file"
 
   java:
     name: Java (manager-api)
     runs-on: ubuntu-latest
-    # 三个 @SpringBootTest 要真连 MySQL 和 Redis，空库即可，Liquibase 会自己建表
+    # The three @SpringBootTest classes connect to real MySQL and Redis; an empty database is enough, and Liquibase creates the tables itself
     services:
       mysql:
         image: mysql:8.0
@@ -84,8 +84,8 @@ jobs:
         run: mvn -B test -DskipTests=false -DfailIfNoTests=false
       - name: Check the integration tests really ran
         working-directory: main/manager-api
-        # 守卫在依赖不齐时会把整类集成测试跳过，这里盯一下它们有没有真跑，
-        # 免得门禁被悄悄掏空
+        # The guard skips whole classes of integration tests when dependencies are incomplete; check here that they actually ran,
+        # so the gate is not silently hollowed out
         run: bash scripts/check-integration-tests.sh
 
   web:

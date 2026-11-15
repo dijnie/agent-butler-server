@@ -46,7 +46,7 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
     @Override
     public List<DeviceAddressBookEntity> getAddressBookList(String macAddress) {
         List<DeviceAddressBookEntity> rows = assignUniqueAliases(deviceAddressBookDao.getAddressBookList(macAddress));
-        // 取名按固定顺序算完了，前端要看的是最近改过的排前面，放回去
+        // Names were computed in a fixed order; the frontend wants the most recently modified first, so put it back
         rows.sort(Comparator
                 .comparing(DeviceAddressBookEntity::getUpdateDate, Comparator.nullsLast(Comparator.reverseOrder())));
         return rows;
@@ -68,37 +68,37 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
         Map<String, Map<String, String>> allBooks = getAllAddressBooks();
 
         if (isAnswer) {
-            return postToMqtt("/api/call/accept", Map.of("mac", callerMac), "接听");
+            return postToMqtt("/api/call/accept", Map.of("mac", callerMac), "Answer");
         }
 
-        // 主动呼叫模式
+        // Outgoing call mode
         Map<String, String> callerBook = allBooks.get(bookKey(callerMac));
         if (callerBook == null) {
-            return errorResult("未找到备注为'" + nickname + "'的设备");
+            return errorResult("No device found with the remark '" + nickname + "'");
         }
         String targetMacWithPerm = callerBook.get(nickname);
         if (targetMacWithPerm == null) {
-            return errorResult("未找到备注为'" + nickname + "'的设备");
+            return errorResult("No device found with the remark '" + nickname + "'");
         }
         String[] parts = targetMacWithPerm.split("\\|");
         String targetMac = parts[0];
         boolean hasPermission = parts.length > 1 && "1".equals(parts[1]);
 
         if (!hasPermission) {
-            return errorResult("呼叫失败，您没有权限呼叫该设备");
+            return errorResult("Call failed, you do not have permission to call this device");
         }
 
-        // 获取目标设备如何称呼主叫方
+        // Get how the target device calls the caller
         Map<String, String> targetBook = allBooks.get(bookKey(targetMac));
         String callerNickname = null;
         if (targetBook != null) {
             callerNickname = targetBook.get(bookKey(callerMac));
         }
         if (StringUtils.isBlank(callerNickname)) {
-            // 主叫显示名取的是主叫方自己那台设备在设备表里的名字，不是对方的。
-            // 对方那边给主叫方起的称呼在上面的 targetBook 里已经查过。
-            // 产品上按「来电显示」的口径处理，所以这里不套通讯录那套「不抄对方私产」的限制
-            // 这个接口没有登录用户上下文，归属校验那个查法在这里会返回空，只能用不校验归属的查法
+            // The caller display name is the name of the caller's own device in the device table, not the other party's.
+            // The name the other side gave the caller was already looked up in targetBook above.
+            // Product-wise this is handled as "caller ID", so the address book's "do not copy the other party's private property" restriction is not applied here
+            // This API has no logged-in user context; the ownership-checking lookup would return empty here, so only the lookup without the ownership check can be used
             DeviceEntity callerDevice = deviceService.getDeviceByMacAddress(callerMac);
             if (callerDevice != null) {
                 callerNickname = callerDevice.getAlias();
@@ -110,7 +110,7 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
 
         return postToMqtt("/api/call/request",
                 Map.of("caller_mac", callerMac, "target_mac", targetMac, "caller_nickname", callerNickname),
-                "呼叫");
+                "Call");
     }
 
     @Override
@@ -123,16 +123,16 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
             String macA = bookKey(entity.getMacAddress());
             String macB = bookKey(entity.getTargetMac());
 
-            // 构建正向映射: A对B的映射 nickname -> macB|permission
+            // Build the forward mapping: A's mapping for B, nickname -> macB|permission
             Map<String, String> book = result.computeIfAbsent(macA, k -> new HashMap<>());
             String permStr = (Boolean.TRUE.equals(entity.getHasPermission())) ? "1" : "0";
             book.put(entity.getAlias(), macB + "|" + permStr);
 
-            // 构建反向记录用于查找B对A的称呼，用同一个去重后的名字，两边才对得上
+            // Build reverse records to look up what B calls A, using the same de-duplicated name so the two sides match
             reverseMap.put(macB + ":" + macA, entity.getAlias());
         }
 
-        // 构建反向映射: B对A的映射 macA -> nickname
+        // Build the reverse mapping: B's mapping for A, macA -> nickname
         for (DeviceAddressBookEntity entity : allRecords) {
             String macA = bookKey(entity.getMacAddress());
             String macB = bookKey(entity.getTargetMac());
@@ -147,41 +147,41 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
     }
 
     /**
-     * 给每行算出一个不重名的称呼，返回排好序、alias 已写好的新列表
+     * Compute a non-duplicate name for each row and return a new sorted list with alias already written
      *
-     * 昵称在同一个人的通讯录里是索引，同名后写的会盖掉先写的，按昵称呼会呼错设备。
-     * 库里本来就有重名：空别名补出来的尾号称呼只有 256 种取值，一本通讯录十几条
-     * 没起名就撞上了。所以显示和呼叫都得走这一份，
-     * 不然前端看到的字和呼叫时用的名字对不上，用户照着点的名字呼不到人。
-     * 不改传入的那个列表：它是 DAO 刚查出来的，调用方还要按自己的顺序用
+     * A nickname is an index within one person's address book; with duplicates the later one overwrites the earlier one, and calling by nickname reaches the wrong device.
+     * The database already has duplicates: the tail-number names filled in for empty aliases have only 256 possible values, and an address book with a dozen
+     * unnamed entries already collides. So both display and calling must go through this one,
+     * otherwise the text the frontend shows and the name used when calling do not match, and the user cannot reach anyone by the name they tapped.
+     * The passed-in list is not modified: it was just queried by the DAO and the caller still needs to use it in its own order
      */
     private List<DeviceAddressBookEntity> assignUniqueAliases(List<DeviceAddressBookEntity> rows) {
-        // 取名要靠先后定谁拿原名，而 selectList 不带 order by，返回顺序不保证。
-        // 排一次，同样的数据每次算出来的结果一样，缓存不会来回变。
-        // 按归一后的地址排：同一个人不管库里是哪种写法都排到一起，
-        // 后面两级比较器再分先后。同一本里 target_mac 不会重复（主键摆着），
-        // 所以顺序还是由这三个键定死的，不会掉回"跟着数据库返回顺序走"
+        // Naming depends on order to decide who gets the original name, and selectList has no order by, so the returned order is not guaranteed.
+        // Sort once, so the same data yields the same result every time and the cache does not flip back and forth.
+        // Sort by the normalized address: the same person is grouped together no matter which spelling is in the database,
+        // and the next two comparators decide the order. target_mac does not repeat within one book (the primary key ensures it),
+        // so the order is still fully fixed by these three keys and does not fall back to "following the order the database returns"
         List<DeviceAddressBookEntity> ordered = new ArrayList<>(rows);
         ordered.sort(Comparator
                 .comparing((DeviceAddressBookEntity row) -> bookKey(row.getMacAddress()),
                         Comparator.nullsFirst(Comparator.naturalOrder()))
-                // 权限排在地址前面：撞名时让对方准许呼我的那台先拿原名。
-                // 排在后面等于不起作用，两条地址不同时谁先谁后是地址定的，
-                // 没权限那条照样占住原名，用户照前端看到的名字呼叫命中的就是它，
-                // 界面上只会说没权限，怎么点都不通
+                // Permission is sorted before the address: on a name collision, the one whose owner allows calling me gets the original name first.
+                // Sorting it later would have no effect: when the two addresses differ, the address decides who comes first,
+                // the one without permission would still hold the original name, a call by the name the user sees in the frontend would hit it,
+                // and the UI would only say no permission, with no way to get through
                 .thenComparing(DeviceAddressBookEntity::getHasPermission,
                         Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(DeviceAddressBookEntity::getTargetMac, Comparator.nullsFirst(Comparator.naturalOrder())));
 
         Map<String, Set<String>> takenByOwner = new HashMap<>();
         for (DeviceAddressBookEntity row : ordered) {
-            // 建表时 alias 默认是空的，用户没起名就是空的，这是默认状态不是异常。
-            // 补个尾号称呼顶上，整条跳过的话接口照样返回成功，对方却再也呼不过来
+            // alias is empty by default when the row is created; if the user gave no name it is empty. That is the default state, not an error.
+            // Fill in a tail-number name instead; if the whole row were skipped the API would still return success but the other party could never call in
             String alias = StringUtils.isBlank(row.getAlias())
                     ? formatMacAsDeviceName(row.getTargetMac())
                     : row.getAlias();
 
-            // 加后缀的写法跟 generateUniqueAlias 保持一致，不搞两套命名规则
+            // The suffix style is kept consistent with generateUniqueAlias; no second naming rule
             Set<String> taken = takenByOwner.computeIfAbsent(bookKey(row.getMacAddress()), k -> new HashSet<>());
             String uniqueAlias = alias;
             int suffix = 1;
@@ -216,27 +216,27 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
             DeviceAddressBookEntity entity = new DeviceAddressBookEntity();
             entity.setMacAddress(macAddress);
             entity.setTargetMac(targetMac);
-            // 调用方没起名就退回尾号称呼。对方设备在智控台上起的名字是对方的私产，
-            // 抄进调用方的通讯录等于把别人的昵称漏出去，所以别人的设备一律不去设备表取名
+            // If the caller gave no name, fall back to the tail-number name. The name the other party's device has in the control console is their private property,
+            // and copying it into the caller's address book would leak someone else's nickname, so names of other people's devices are never taken from the device table
             if (StringUtils.isBlank(alias)) {
-                // 只有给自己那台设备起名时才用设备表里的名字，那本来就是调用方自己的
+                // The device table name is used only when naming the caller's own device, which belongs to the caller anyway
                 if (isOwnDevice(macAddress, targetMac)) {
-                    // 用带归属校验的那个查法。设备表里同一个 MAC 可能有两行只差大小写，
-                    // 一次只准取一条的那种查法撞上这种数据会抛 TooManyResultsException，
-                    // 整个保存接口带崩；按 id 取第一条，撞行也不报错
+                    // Use the lookup with the ownership check. The device table may hold two rows for the same MAC differing only in case,
+                    // a lookup that allows only one row would throw TooManyResultsException on such data
+                    // and crash the whole save API; take the first by id, so colliding rows do not raise an error
                     DeviceEntity ownDevice = deviceService.getOwnedDeviceByMacAddress(macAddress);
                     if (ownDevice != null && StringUtils.isNotBlank(ownDevice.getAlias())) {
                         alias = ownDevice.getAlias();
                     }
                 }
-                // 设备登记了但用户没起过名，alias 建表就是 null，这是默认状态
-                // 不是异常。这时候落个 null 进去，缓存刷新会把整条跳过，
-                // 接口照样返回成功，对方却永远呼不过来
+                // The device is registered but the user never named it; alias is null from table creation, which is the default state,
+                // not an error. Writing null here would make the cache refresh skip the whole row;
+                // the API would still return success but the other party could never call in
                 if (StringUtils.isBlank(alias)) {
                     alias = formatMacAsDeviceName(targetMac);
                 }
             }
-            // 检查重名
+            // Check for duplicate names
             alias = generateUniqueAlias(macAddress, targetMac, alias);
             entity.setAlias(alias);
             entity.setHasPermission(hasPermission);
@@ -277,7 +277,7 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
 
         if (StringUtils.isBlank(mqttGatewayUrl) || "null".equals(mqttGatewayUrl)
                 || MqttGatewayAuthorization.isMissingSignatureKey(mqttSignatureKey)) {
-            result.put("message", action + "失败，网关配置缺失");
+            result.put("message", action + " failed, gateway configuration is missing");
             return result;
         }
 
@@ -297,29 +297,29 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
             }
             return result;
         } catch (Exception e) {
-            result.put("message", action + "失败，请稍后再试");
+            result.put("message", action + " failed, please try again later");
             return result;
         }
     }
 
     /**
-     * 通讯录里当主人用的地址键
+     * The address key used as the owner in the address book
      *
      * <p>
-     * 写缓存、查缓存、算称呼都靠它分组，三处必须是同一个值。少归一一次，同一个人的两行
-     * 会被当成两个人：各自拿到同名，写进同一本时后者盖掉前者，一台设备直接从缓存里消失。
-     * 库里确实能出现这种数据——表是 utf8mb4_0900_ai_ci，主键 (mac_address, target_mac)
-     * 大小写不敏感，owner 只差大小写而 target 不同的话两行不撞
+     * Writing the cache, reading the cache and computing names all group by it, so the three places must use the same value. Miss one normalization and two rows of the same person
+     * are treated as two people: each gets the same name, the latter overwrites the former when written into the same book, and a device simply disappears from the cache.
+     * Such data really can appear in the database - the table is utf8mb4_0900_ai_ci and the primary key (mac_address, target_mac)
+     * is case-insensitive; if owner differs only in case while target differs, the two rows do not collide
      */
     private static String bookKey(String macAddress) {
         return macAddress == null ? null : macAddress.toLowerCase();
     }
 
     /**
-     * 目标设备是不是调用方自己那台
+     * Whether the target device is the caller's own device
      *
      * <p>
-     * MAC 不区分大小写，比较前先按通讯录的键归一化，跟别处的比较口径保持一致
+     * MAC is case-insensitive; normalize by the address book key before comparing, consistent with comparisons elsewhere
      */
     private static boolean isOwnDevice(String macAddress, String targetMac) {
         return bookKey(macAddress) != null && bookKey(macAddress).equals(bookKey(targetMac));
@@ -329,9 +329,9 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
         if (StringUtils.isBlank(mac) || mac.length() < 2) {
             return mac;
         }
-        // MAC 本身不区分大小写，落库、查库走的都是小写化的值。
-        // 这里跟着小写化，不跟着的话同一个地址在两条路径上会算出两个称呼，
-        // 数据搬到智控台上看到的名字就叫不到人了
+        // MAC itself is case-insensitive; storing and querying both use the lowercased value.
+        // Lowercase here too; otherwise the same address would yield two names on the two paths,
+        // and the name seen after the data is moved to the control console could not reach anyone
         String lastTwo = mac.substring(mac.length() - 2).toLowerCase();
         return "尾号为" + lastTwo + "的设备";
     }

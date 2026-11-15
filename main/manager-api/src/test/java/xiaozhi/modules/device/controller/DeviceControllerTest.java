@@ -29,7 +29,7 @@ import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
 
-@DisplayName("设备更新接口回归测试")
+@DisplayName("Device update API regression test")
 class DeviceControllerTest {
 
     private static final String DEVICE_ID = "device-id";
@@ -38,7 +38,7 @@ class DeviceControllerTest {
     private static final long USER_ID = 1L;
 
     @Test
-    @DisplayName("数据库未更新时不误报自动升级状态修改成功")
+    @DisplayName("Does not falsely report the auto-upgrade status change as successful when the database was not updated")
     void updateFailureIsReturnedToCaller() {
         DeviceService deviceService = mock(DeviceService.class);
         DeviceEntity entity = ownedDevice();
@@ -64,7 +64,7 @@ class DeviceControllerTest {
     }
 
     @Test
-    @DisplayName("读取他人设备通讯录时一律按设备不存在处理")
+    @DisplayName("Reading another user's device address book is always treated as device not found")
     void addressBookOfDeviceOwnedByAnotherUserIsRejected() {
         DeviceService deviceService = mock(DeviceService.class);
         DeviceAddressBookService addressBookService = mock(DeviceAddressBookService.class);
@@ -84,7 +84,7 @@ class DeviceControllerTest {
     }
 
     @Test
-    @DisplayName("读取本机设备通讯录照常返回")
+    @DisplayName("Reading this device's address book returns as usual")
     void addressBookOfOwnDeviceIsReturned() {
         DeviceService deviceService = mock(DeviceService.class);
         DeviceAddressBookService addressBookService = mock(DeviceAddressBookService.class);
@@ -100,7 +100,7 @@ class DeviceControllerTest {
     }
 
     @Test
-    @DisplayName("以他人设备名义改别名被拒")
+    @DisplayName("Changing an alias in the name of another user's device is rejected")
     void updateAliasOnDeviceOwnedByAnotherUserIsRejected() {
         DeviceService deviceService = mock(DeviceService.class);
         DeviceAddressBookService addressBookService = mock(DeviceAddressBookService.class);
@@ -114,12 +114,12 @@ class DeviceControllerTest {
 
         Result<Void> result = controller.updateAlias(dto);
 
-        assertEquals("无权限操作该设备", result.getMsg());
+        assertEquals("No permission to operate on this device", result.getMsg());
         verify(addressBookService, never()).saveOrUpdate(OTHER_MAC, MAC, "office", null);
     }
 
     @Test
-    @DisplayName("以他人设备名义改权限被拒")
+    @DisplayName("Changing a permission in the name of another user's device is rejected")
     void updatePermissionOnDeviceOwnedByAnotherUserIsRejected() {
         DeviceService deviceService = mock(DeviceService.class);
         DeviceAddressBookService addressBookService = mock(DeviceAddressBookService.class);
@@ -133,7 +133,7 @@ class DeviceControllerTest {
 
         Result<Void> result = controller.updatePermission(dto);
 
-        assertEquals("无权限操作该设备", result.getMsg());
+        assertEquals("No permission to operate on this device", result.getMsg());
         verify(addressBookService, never()).saveOrUpdate(OTHER_MAC, MAC, null, true);
     }
 

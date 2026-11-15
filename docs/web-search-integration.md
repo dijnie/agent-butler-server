@@ -1,82 +1,82 @@
-# 联网搜索插件使用指南
+# Web Search Plugin Guide
 
-## 功能简介
+## Overview
 
-联网搜索插件 `web_search` 支持在对话过程中实时联网搜索信息并返回结果。插件支持四个搜索源：秘塔（Metaso）、Tavily、Serply和Outcrawl，用户可根据需要选择其中一个。
+The web search plugin `web_search` can search the web in real time during a conversation and return the results. The plugin supports four search providers: Metaso (秘塔), Tavily, Serply, and Outcrawl. You can choose one of them as needed.
 
-## API Key申请指南
+## API Key Application Guide
 
-目前我们适配了`秘塔搜索`、`Tavily搜索`、`Serply搜索`和`Outcrawl搜索`。
-- Tavily搜索：每个月1000次免费额度。
-- 秘塔搜索：拥有较为优质的国内数据源。
-- Serply搜索：返回谷歌搜索结果，注册赠送2500次免费额度，额度用完后需要付费。
-- Outcrawl搜索：面向AI智能体的网页搜索接口，每月1000 credits免费额度。
+We currently support `Metaso search`, `Tavily search`, `Serply search`, and `Outcrawl search`.
+- Tavily search: 1000 free calls per month.
+- Metaso search: has fairly high-quality domestic (China) data sources.
+- Serply search: returns Google search results, with 2500 free calls on registration; after the quota is used up you must pay.
+- Outcrawl search: a web search API for AI agents, with a free quota of 1000 credits per month.
 
-## API Key申请指南
+## API Key Application Guide
 
-### 方式一：使用秘塔搜索
+### Option 1: Use Metaso search
 
-- 访问 [秘塔搜索API](https://metaso.cn/search-api/api-keys)，注册并登录账号
-- 在API密钥管理页面，点击"创建新的Key"
-- 复制生成的API Key（以 `mk-` 为前缀），这是配置所需的关键信息
+- Visit the [Metaso search API](https://metaso.cn/search-api/api-keys), register and log in
+- On the API key management page, click "Create new key"
+- Copy the generated API Key (prefixed with `mk-`), which is key information needed for the configuration
 
-### 方式二：使用Tavily搜索
+### Option 2: Use Tavily search
 
-- 访问 [Tavily控制台](https://app.tavily.com/home)，注册并登录账号
-- 在控制台中创建API Key
-- 复制生成的API Key（以 `tvly-` 为前缀），这是配置所需的关键信息
+- Visit the [Tavily console](https://app.tavily.com/home), register and log in
+- Create an API Key in the console
+- Copy the generated API Key (prefixed with `tvly-`), which is key information needed for the configuration
 
-### 方式三：使用Serply搜索
+### Option 3: Use Serply search
 
-- 访问 [Serply](https://serply.io)，注册并登录账号
-- 在控制台中创建API Key
-- 复制生成的API Key，这是配置所需的关键信息
-- 接口说明见 [Serply文档](https://serply.io/docs)
+- Visit [Serply](https://serply.io), register and log in
+- Create an API Key in the console
+- Copy the generated API Key, which is key information needed for the configuration
+- For the API reference, see the [Serply docs](https://serply.io/docs)
 
-### 方式四：使用Outcrawl搜索
+### Option 4: Use Outcrawl search
 
-- 访问 [Outcrawl](https://outcrawl.ai)，注册并登录账号
-- 在控制台中创建API Key
-- 复制生成的API Key，这是配置所需的关键信息
-- 接口说明见 [Outcrawl文档](https://outcrawl.ai/docs/search/overview)
+- Visit [Outcrawl](https://outcrawl.ai), register and log in
+- Create an API Key in the console
+- Copy the generated API Key, which is key information needed for the configuration
+- For the API reference, see the [Outcrawl docs](https://outcrawl.ai/docs/search/overview)
 
-## 配置方式
+## Configuration
 
-### 方式1. 使用智控台部署（推荐）
+### Option 1. Deploy with the control console (recommended)
 
-- 登录智控台
-- 进入"配置角色"页面，选择要配置的智能体
-- 点击"编辑功能"按钮，在右侧参数配置区域找到"联网搜索"插件
-- 勾选"联网搜索"
-- 填入搜索源（`metaso`、`tavily`、`serply`或`outcrawl`），并将对应的`API Key`填入配置项
-- 保存配置，再保存智能体配置
+- Log in to the control console
+- Go to the "Role Configuration" page and select the agent you want to configure
+- Click the "Edit Functions" button and find the "Web search" plugin in the parameter configuration area on the right
+- Check "Web search"
+- Enter the search provider (`metaso`, `tavily`, `serply`, or `outcrawl`) and enter the corresponding `API Key` in the configuration item
+- Save the configuration, then save the agent configuration
 
-### 方式2. 单模块xiaozhi-server部署
+### Option 2. Single-module xiaozhi-server deployment
 
-在 `data/.config.yaml` 中配置：
+Configure in `data/.config.yaml`:
 
-- 将搜索源填入 `provider`，可选值为 `metaso`、`tavily`、`serply` 或 `outcrawl`
-- 将申请到的API Key填入 `api_key`
+- Enter the search provider in `provider`; the allowed values are `metaso`, `tavily`, `serply`, or `outcrawl`
+- Enter the API Key you obtained in `api_key`
 
 ```yaml
 plugins:
   web_search:
     provider: "metaso"
-    api_key: "你的API Key"
+    api_key: "your API Key"
 ```
 
-如需自定义返回结果数量和工具描述，可额外配置 `max_results` 和 `description`：
+To customize the number of returned results and the tool description, you can additionally configure `max_results` and `description`:
 
 ```yaml
 plugins:
   web_search:
     provider: "metaso"
-    description: "联网搜索工具。当用户明确需要联网搜索问题时使用此工具。"
+    description: "Web search tool. Use this tool when the user explicitly needs to search the web for a question."
     max_results: 5
-    api_key: "你的API Key"
+    api_key: "your API Key"
 ```
 
-同时在 `functions` 列表中确保已启用 `web_search`：
+Also make sure `web_search` is enabled in the `functions` list:
 
 ```yaml
 plugins:
@@ -84,4 +84,4 @@ plugins:
     - web_search
 ```
 
-配置完成后重启服务即可生效。
+After configuring, restart the service for it to take effect.

@@ -20,14 +20,14 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 几个 @SpringBootTest 要真连 MySQL 和 Redis。本地没起这两个依赖时，
- * 整类测试跳过，别让 Spring 上下文起不来变成一堆看不懂的报错；
- * CI 里依赖必须真的在，探不通就直接让构建红。
+ * Several @SpringBootTest classes connect to a real MySQL and Redis. When these two dependencies are not running locally,
+ * the whole test class is skipped, so a Spring context that cannot start does not turn into a pile of unreadable errors;
+ * in CI the dependencies must really be there, and if they cannot be reached the build goes red directly.
  */
 @Slf4j
 public final class IntegrationTestEnvironment {
 
-    /** 集成测试用的配置文件，跟应用本身读的是同一套 */
+    /** Configuration files used by the integration tests, the same set the application itself reads */
     private static final String[] CONFIG_FILES = {"application.yml", "application-dev.yml"};
 
     private static Boolean available;
@@ -37,8 +37,8 @@ public final class IntegrationTestEnvironment {
     }
 
     /**
-     * 放在要连库的测试类的 @BeforeAll 里。
-     * 本地依赖不齐就整类跳过，CI 里依赖不齐就直接失败。
+     * Put this in the @BeforeAll of test classes that connect to the database.
+     * When local dependencies are incomplete the whole class is skipped; when CI dependencies are incomplete it fails directly.
      */
     public static void requireDatabaseAndRedis() {
         String issue = probe();
@@ -47,13 +47,13 @@ public final class IntegrationTestEnvironment {
         }
         if (isCi()) {
             throw new IllegalStateException(
-                    "CI 环境里" + issue + "，这几个集成测试必须真的跑起来，不能跳过");
+                    "In the CI environment, " + issue + "; these integration tests must really run and cannot be skipped");
         }
-        log.warn("跳过依赖 MySQL 和 Redis 的集成测试：{}", issue);
+        log.warn("Skipping integration tests that depend on MySQL and Redis: {}", issue);
         Assumptions.assumeTrue(false, issue);
     }
 
-    /** GitHub Actions 上会带 CI=true */
+    /** GitHub Actions sets CI=true */
     public static boolean isCi() {
         String value = System.getenv("CI");
         if (value == null) {
@@ -63,7 +63,7 @@ public final class IntegrationTestEnvironment {
         return !trimmed.isEmpty() && !"false".equalsIgnoreCase(trimmed);
     }
 
-    /** 依赖都齐返回 null，不齐返回缺什么 */
+    /** Returns null when all dependencies are present, otherwise what is missing */
     static synchronized String probe() {
         if (available != null) {
             return problem;
@@ -78,7 +78,7 @@ public final class IntegrationTestEnvironment {
         String password = firstNonBlank(resolver.getProperty("spring.datasource.druid.password", ""),
                 resolver.getProperty("spring.datasource.password", ""));
         if (url.isBlank()) {
-            issues.append("配置里找不到数据源地址；");
+            issues.append("data source URL not found in the configuration; ");
         } else {
             try {
                 DriverManager.setLoginTimeout(5);
@@ -86,7 +86,7 @@ public final class IntegrationTestEnvironment {
                     connection.isValid(3);
                 }
             } catch (Exception e) {
-                issues.append("连不上 MySQL（").append(e.getMessage()).append("）；");
+                issues.append("cannot connect to MySQL (").append(e.getMessage()).append("); ");
             }
         }
 
@@ -110,7 +110,7 @@ public final class IntegrationTestEnvironment {
                 client.shutdown();
             }
         } catch (Exception e) {
-            issues.append("连不上 Redis（").append(e.getMessage()).append("）；");
+            issues.append("cannot connect to Redis (").append(e.getMessage()).append("); ");
         }
 
         if (issues.length() == 0) {
@@ -123,7 +123,7 @@ public final class IntegrationTestEnvironment {
         return problem;
     }
 
-    /** 读应用自己那份配置，命令行上的 -D 参数优先级更高，跟应用保持一致 */
+    /** Reads the application's own configuration; -D arguments on the command line take priority, consistent with the application */
     private static PropertySourcesPropertyResolver resolver() {
         ConfigurableEnvironment environment = new StandardEnvironment();
         YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
@@ -137,7 +137,7 @@ public final class IntegrationTestEnvironment {
                     environment.getPropertySources().addLast(source);
                 }
             } catch (IOException e) {
-                log.warn("读配置 {} 失败：{}", name, e.getMessage());
+                log.warn("Failed to read configuration {}: {}", name, e.getMessage());
             }
         }
         return new PropertySourcesPropertyResolver(environment.getPropertySources());

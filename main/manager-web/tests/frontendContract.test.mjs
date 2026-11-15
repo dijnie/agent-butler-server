@@ -88,7 +88,7 @@ test('model navigation keeps its scrollable layout declarations', () => {
   assert.match(itemStyles, /flex-shrink:\s*0;/);
   assert.match(wrapperStyles, /height:\s*calc\([^)]*vh[^)]*\)/);
 
-  // 断言只取第一条同名规则，后面再补一条就能盖掉上面三条，必须挡住
+  // The assertion only takes the first rule with the same name; adding another one later could override the three above, so it must be blocked
   assert.equal(
     (modelConfigSource.match(/\.nav-panel\s*\{/g) || []).length,
     1,
@@ -99,7 +99,7 @@ test('model navigation keeps its scrollable layout declarations', () => {
     1,
     'model menu items should keep a single rule',
   );
-  // 复合选择器特异性更高，能直接盖掉可滚属性
+  // Compound selectors have higher specificity and can directly override the scroll property
   assert.equal(
     (modelConfigSource.match(/\.nav-panel[.:\[#][^{}]*\{/g) || []).length,
     0,
@@ -118,8 +118,8 @@ test('model navigation keeps its scrollable layout declarations', () => {
     })
     .filter((selector) => selector && !selector.startsWith('@'));
 
-  // 上面几条挡不住带伪类的后代选择器（.nav-panel .el-menu-item:hover），
-  // 它特异性一样更高，照样能盖掉可滚属性，所以把 nav 相关的选择器逐条列出来核对
+  // The rules above cannot block descendant selectors with pseudo-classes (.nav-panel .el-menu-item:hover),
+  // which also have higher specificity and can still override the scroll property, so list the nav-related selectors one by one to check
   assert.deepEqual(
     ruleSelectors.filter((selector) => selector.includes('.nav-panel')).sort(),
     [

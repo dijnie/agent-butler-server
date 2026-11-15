@@ -18,8 +18,8 @@ function makeVm() {
   vm.$message = { error: vi.fn() };
   vm.$t = (key) => key;
   vm.providerFields = [
-    { label: '音量', prop: 'volume', type: 'json-textarea', placeholder: '请输入volume' },
-    { label: '密钥', prop: 'api_key', type: 'password', placeholder: '请输入api_key' },
+    { label: 'Volume', prop: 'volume', type: 'json-textarea', placeholder: 'Please enter volume' },
+    { label: 'Secret key', prop: 'api_key', type: 'password', placeholder: 'Please enter api_key' },
   ];
   vm.formData.supplier = 'test-provider';
   return vm;

@@ -28,7 +28,7 @@ import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.sys.service.SysUserUtilService;
 
-@DisplayName("设备归属校验回归测试")
+@DisplayName("Device ownership check regression test")
 class DeviceServiceImplTest {
 
     private static final String MAC = "00:11:22:33:44:55";
@@ -36,7 +36,7 @@ class DeviceServiceImplTest {
     private static final long OTHER_USER_ID = 2L;
 
     @Test
-    @DisplayName("设备属于当前用户时返回设备")
+    @DisplayName("Returns the device when it belongs to the current user")
     void deviceOwnedByCurrentUserIsReturned() {
         DeviceEntity device = device(USER_ID);
         DeviceServiceImpl service = serviceWithDeviceDao(daoReturning(device));
@@ -49,7 +49,7 @@ class DeviceServiceImplTest {
     }
 
     @Test
-    @DisplayName("设备属于他人时按查不到处理")
+    @DisplayName("Treated as not found when the device belongs to someone else")
     void deviceOwnedByAnotherUserIsHidden() {
         DeviceServiceImpl service = serviceWithDeviceDao(daoReturning(device(OTHER_USER_ID)));
 
@@ -61,7 +61,7 @@ class DeviceServiceImplTest {
     }
 
     @Test
-    @DisplayName("设备未登记时按查不到处理")
+    @DisplayName("Treated as not found when the device is not registered")
     void unregisteredDeviceIsHidden() {
         DeviceServiceImpl service = serviceWithDeviceDao(daoReturning(List.of()));
 
@@ -73,7 +73,7 @@ class DeviceServiceImplTest {
     }
 
     @Test
-    @DisplayName("设备没有归属人时按查不到处理")
+    @DisplayName("Treated as not found when the device has no owner")
     void unboundDeviceIsHidden() {
         DeviceServiceImpl service = serviceWithDeviceDao(daoReturning(device(null)));
 
@@ -85,11 +85,11 @@ class DeviceServiceImplTest {
     }
 
     @Test
-    @DisplayName("没有登录用户时按查不到处理")
+    @DisplayName("Treated as not found when there is no logged-in user")
     void anonymousCallerGetsNothing() {
         DeviceServiceImpl service = serviceWithDeviceDao(daoReturning(device(USER_ID)));
 
-        // 匿名调用的实际形态：getUser() 返回空对象，id 是空的，不是返回 null
+        // The actual shape of an anonymous call: getUser() returns an empty object with an empty id, not null
         try (MockedStatic<SecurityUser> securityUser = mockStatic(SecurityUser.class)) {
             securityUser.when(SecurityUser::getUser).thenReturn(new UserDetail());
 
@@ -98,7 +98,7 @@ class DeviceServiceImplTest {
     }
 
     @Test
-    @DisplayName("库里同一 MAC 有两行只差大小写时，取第一条做归属校验，不再抛异常")
+    @DisplayName("When the database has two rows for the same MAC differing only in case, the first is used for the ownership check and no exception is thrown")
     void duplicateMacDifferingOnlyInCaseStillReturnsTheDevice() {
         DeviceEntity first = device(USER_ID, "device-1");
         DeviceEntity second = device(USER_ID, "device-2");
@@ -112,7 +112,7 @@ class DeviceServiceImplTest {
     }
 
     @Test
-    @DisplayName("解绑自己的设备时，通讯录跟着一起清")
+    @DisplayName("Unbinding one's own device also clears the address book")
     void unbindOwnDeviceClearsItsAddressBook() {
         DeviceDao dao = mock(DeviceDao.class);
         when(dao.selectById("device-1")).thenReturn(device(USER_ID, "device-1"));
@@ -126,7 +126,7 @@ class DeviceServiceImplTest {
     }
 
     @Test
-    @DisplayName("解绑别人的设备时什么都不删，通讯录不能跟着没")
+    @DisplayName("Unbinding someone else's device deletes nothing, and the address book must not disappear with it")
     void unbindAnotherUsersDeviceDeletesNothing() {
         DeviceDao dao = mock(DeviceDao.class);
         when(dao.selectById("device-1")).thenReturn(device(OTHER_USER_ID, "device-1"));
@@ -140,7 +140,7 @@ class DeviceServiceImplTest {
     }
 
     private DeviceServiceImpl serviceWithDao(DeviceDao dao, DeviceAddressBookService addressBookService) {
-        // baseDao 由父类持有，子类内部赋给 this，测试类自己碰不到它
+        // baseDao is held by the parent class and assigned to this inside the subclass; the test class cannot reach it itself
         return new DeviceServiceImpl(
                 dao, mock(SysUserUtilService.class), mock(SysParamsService.class),
                 mock(RedisUtils.class), mock(OtaService.class), addressBookService) {

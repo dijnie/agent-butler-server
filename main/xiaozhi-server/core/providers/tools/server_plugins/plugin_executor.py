@@ -1,4 +1,4 @@
-"""服务端插件工具执行器"""
+"""Server-side plugin tool executor"""
 
 import asyncio
 import functools
@@ -10,13 +10,13 @@ if TYPE_CHECKING:
 from ..base import ToolType, ToolDefinition, ToolExecutor
 from plugins_func.register import all_function_registry, module_func_map, Action, ActionResponse
 
-# 插件专用线程池：不用 asyncio 默认池（DNS 解析、ASR、initialize_modules 等都在用），
-# 避免慢插件打满默认池后拖垮所有协程的 DNS 解析和连接建立。
+# Dedicated plugin thread pool: do not use asyncio's default pool (shared by DNS resolution, ASR, initialize_modules, etc.),
+# so slow plugins cannot saturate the default pool and stall DNS resolution and connection setup for every coroutine.
 _PLUGIN_POOL = ThreadPoolExecutor(max_workers=8, thread_name_prefix="plugin")
 
 
 class ServerPluginExecutor(ToolExecutor):
-    """服务端插件工具执行器"""
+    """Server-side plugin tool executor"""
 
     def __init__(self, conn: "ConnectionHandler"):
         self.conn = conn
@@ -25,28 +25,28 @@ class ServerPluginExecutor(ToolExecutor):
     async def execute(
         self, conn: "ConnectionHandler", tool_name: str, arguments: Dict[str, Any]
     ) -> ActionResponse:
-        """执行服务端插件工具"""
+        """Execute a server-side plugin tool"""
         func_item = all_function_registry.get(tool_name)
         if not func_item:
             return ActionResponse(
-                action=Action.NOTFOUND, response=f"插件函数 {tool_name} 不存在"
+                action=Action.NOTFOUND, response=f"Plugin function {tool_name} does not exist"
             )
 
         try:
-            # 根据工具类型决定如何调用
+            # Decide how to call based on the tool type
             func_type = getattr(func_item, "type", None)
             if func_type is not None and func_type.code in [3, 4, 5]:
-                # CHANGE_SYS_PROMPT, SYSTEM_CTL, IOT_CTL (需要conn参数)
+                # CHANGE_SYS_PROMPT, SYSTEM_CTL, IOT_CTL (requires the conn parameter)
                 call = functools.partial(func_item.func, conn, **arguments)
-            else:  # WAIT 等不传conn（含 type 未指定的插件）
+            else:  # WAIT and others are called without conn (including plugins with no type specified)
                 call = functools.partial(func_item.func, **arguments)
 
             if asyncio.iscoroutinefunction(func_item.func):
                 result = await call()
             else:
-                # 同步函数在 loop 线程上直接执行会卡住整个事件循环，放专用线程池。
+                # Running a sync function directly on the loop thread would block the whole event loop, so run it in the dedicated thread pool.
                 result = await asyncio.get_running_loop().run_in_executor(_PLUGIN_POOL, call)
-                # 兼容同步函数返回协程的写法
+                # Support sync functions that return a coroutine
                 if asyncio.iscoroutine(result):
                     result = await result
 
@@ -59,10 +59,10 @@ class ServerPluginExecutor(ToolExecutor):
             )
 
     def _expand_plugin_names(self, config_functions):
-        """将模块级别的插件名展开为具体函数名。
+        """Expand module-level plugin names into concrete function names.
 
-        在一个 function 文件中可能注册多个 @register_function，
-        配置中如果使用的是模块名（文件名），需要展开为具体的函数名列表。
+        A single function file may register multiple @register_function entries;
+        if the config uses the module name (file name), it must be expanded into the list of concrete function names.
         """
         if not isinstance(config_functions, list):
             try:
@@ -73,50 +73,50 @@ class ServerPluginExecutor(ToolExecutor):
         expanded = []
         for name in config_functions:
             if name in module_func_map:
-                # 模块名，展开为该模块下所有注册函数名
+                # Module name: expand to all function names registered under that module
                 expanded.extend(module_func_map[name])
             elif name in all_function_registry:
-                # 精确匹配函数名，直接保留
+                # Exact function name match: keep as is
                 expanded.append(name)
             else:
-                # 未知名称，保留原值（可能是 MCP 或其他工具）
+                # Unknown name: keep the original value (it may be an MCP or other tool)
                 expanded.append(name)
         return expanded
 
     def _get_plugin_description(self, func_name):
-        """获取插件函数的描述，优先精确匹配函数名，其次匹配模块名。"""
+        """Get a plugin function's description, preferring an exact function name match, then a module name match."""
         plugins = self.config.get("plugins", {})
-        # 精确匹配函数名
+        # Exact function name match
         if func_name in plugins:
             return plugins[func_name].get("description", "")
-        # 通过 module_func_map 反向查找模块名
+        # Reverse-look up the module name through module_func_map
         for module_name, func_names in module_func_map.items():
             if func_name in func_names and module_name in plugins:
                 return plugins[module_name].get("description", "")
         return ""
 
     def get_tools(self) -> Dict[str, ToolDefinition]:
-        """获取所有注册的服务端插件工具"""
+        """Get all registered server-side plugin tools"""
         tools = {}
 
-        # 获取必要的函数
+        # Get the required functions
         necessary_functions = ["handle_exit_intent", "get_lunar"]
 
-        # 获取配置中的函数
+        # Get the functions from the configuration
         config_functions = self.config["Intent"][
             self.config["selected_module"]["Intent"]
         ].get("functions", [])
 
-        # 将模块级别的插件名展开为具体函数名（兜底机制）
+        # Expand module-level plugin names into concrete function names (fallback mechanism)
         config_functions = self._expand_plugin_names(config_functions)
 
-        # 合并所有需要的函数
+        # Merge all needed functions
         all_required_functions = list(set(necessary_functions + config_functions))
 
         for func_name in all_required_functions:
             func_item = all_function_registry.get(func_name)
             if func_item:
-                # 从函数注册中获取描述（支持模块名和函数名的双层查找）
+                # Get the description from the function registry (supports two-level lookup by module name and function name)
                 fun_description = self._get_plugin_description(func_name)
                 if fun_description is not None and len(fun_description) > 0:
                     if "function" in func_item.description and isinstance(
@@ -126,7 +126,7 @@ class ServerPluginExecutor(ToolExecutor):
                             "description"
                         ] = fun_description
 
-                # 新闻插件：根据配置更新新闻源参数描述
+                # News plugin: update the news source parameter description from the configuration
                 if func_name == "get_news_from_newsnow":
                     self._init_news_source_description(func_item, func_name)
 
@@ -139,11 +139,11 @@ class ServerPluginExecutor(ToolExecutor):
         return tools
 
     def has_tool(self, tool_name: str) -> bool:
-        """检查是否有指定的服务端插件工具"""
+        """Check whether the specified server-side plugin tool exists"""
         return tool_name in all_function_registry
 
     def _init_news_source_description(self, func_item, func_name):
-        """根据连接配置初始化新闻工具的参数描述"""
+        """Initialize the news tool's parameter description from the connection configuration"""
         news_sources = (
             self.config.get("plugins", {})
             .get(func_name, {})
@@ -151,10 +151,10 @@ class ServerPluginExecutor(ToolExecutor):
         )
         if not news_sources:
             news_sources = "澎湃新闻;百度热搜;财联社"
-        sources_str = news_sources.replace(";", "、")
+        sources_str = news_sources.replace(";", ", ")
         try:
             func_item.description["function"]["parameters"]["properties"]["source"][
                 "description"
-            ] = f"新闻源的标准中文名称，例如{sources_str}等。可选参数，如果不提供则使用默认新闻源"
+            ] = f"Standard Chinese name of the news source, e.g. {sources_str}. Optional; if not provided, the default news source is used"
         except (KeyError, TypeError):
             pass

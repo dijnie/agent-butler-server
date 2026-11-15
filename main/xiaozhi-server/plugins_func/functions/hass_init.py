@@ -7,7 +7,7 @@ logger = setup_logging()
 
 
 def _expand_module_names(funcs):
-    """把 functions 列表里的模块名（如 hass_state）展开成具体函数名，与工具加载口径一致。"""
+    """Expand module names in the functions list (e.g. hass_state) into concrete function names, consistent with how tools are loaded."""
     expanded = []
     for name in funcs:
         expanded.extend(module_func_map.get(name, [name]))
@@ -15,10 +15,10 @@ def _expand_module_names(funcs):
 
 
 def _devices_text(devices) -> str:
-    """把 devices 配置转成拼进提示词的文字。
+    """Convert the devices config into text to be appended to the prompt.
 
-    config.yaml 示例和手机端智控台给的是列表，每项一条"位置,设备名,entity_id"，这里拼成每行一条；
-    网页端智控台和 HA 集成文档是一段字符串，原样用；其它（如 None）当空。
+    The config.yaml example and the mobile control console provide a list, one "location,device name,entity_id" per item; here they are joined one per line;
+    the web control console and the HA integration docs provide a single string, used as is; anything else (e.g. None) is treated as empty.
     """
     if isinstance(devices, (list, tuple)):
         return "\n".join(
@@ -28,7 +28,7 @@ def _devices_text(devices) -> str:
 
 
 def _hass_plugin_config(plugins_config: dict) -> dict:
-    """取 HA 插件配置：优先本地 config.yaml 的 home_assistant，其次智控台下发的 hass_state。"""
+    """Get the HA plugin config: prefer home_assistant from the local config.yaml, then hass_state pushed from the control console."""
     for key in ("home_assistant", "hass_state"):
         cfg = plugins_config.get(key)
         if cfg:
@@ -45,11 +45,11 @@ def append_devices_to_prompt(conn):
         )
 
         if "hass_get_state" in funcs or "hass_set_state" in funcs:
-            prompt = "\n下面是我家智能设备列表（位置，设备名，entity_id），可以通过homeassistant控制\n"
+            prompt = "\nBelow is the list of smart devices in my home (location, device name, entity_id), which can be controlled through homeassistant\n"
             plugin_config = _hass_plugin_config(conn.config.get("plugins", {}))
             deviceStr = _devices_text(plugin_config.get("devices", ""))
             conn.prompt += prompt + deviceStr + "\n"
-            # 更新提示词
+            # Update the prompt
             conn.dialogue.update_system_message(conn.prompt)
 
 
@@ -65,7 +65,7 @@ def initialize_hass_handler(conn):
     ha_config["base_url"] = plugin_config.get("base_url")
     ha_config["api_key"] = plugin_config.get("api_key")
 
-    # 统一检查API密钥
+    # Check the API key in one place
     model_key_msg = check_model_key("home_assistant", ha_config.get("api_key"))
     if model_key_msg:
         logger.bind(tag=TAG).error(model_key_msg)

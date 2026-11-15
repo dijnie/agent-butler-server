@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 检查那几个要连 MySQL 和 Redis 的集成测试是不是真的跑了。
-# 守卫要是哪天手滑把它们全跳过了，CI 必须红，不能安安静静少跑一半门禁。
+# Check that the integration tests that connect to MySQL and Redis really ran.
+# If the guard ever accidentally skips all of them, CI must go red; it must not quietly run half the gate.
 set -uo pipefail
 
 REPORT_DIR="${1:-target/surefire-reports}"
@@ -12,7 +12,7 @@ WATCHED=(
 )
 
 if [ ! -d "$REPORT_DIR" ]; then
-  echo "找不到测试报告目录：$REPORT_DIR"
+  echo "Test report directory not found: $REPORT_DIR"
   exit 1
 fi
 
@@ -31,14 +31,14 @@ for class in "${WATCHED[@]}"; do
   if [ "$count" -eq 0 ]; then
     missing+=("$class")
   else
-    echo "OK  $class 跑了 $count 条"
+    echo "OK  $class ran $count tests"
   fi
 done
 
 if [ ${#missing[@]} -ne 0 ]; then
-  echo "这几个集成测试一条都没跑：${missing[*]}"
-  echo "守卫把门禁掏空了，构建必须失败"
+  echo "None of these integration tests ran: ${missing[*]}"
+  echo "The guard hollowed out the gate; the build must fail"
   exit 1
 fi
 
-echo "集成测试都跑过了"
+echo "All integration tests ran"

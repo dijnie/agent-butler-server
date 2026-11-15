@@ -1,0 +1,120 @@
+# Full-module stack for Portainer (server + web console + MySQL + Redis).
+# Uses named volumes only, so it can be pasted into the Portainer web editor
+# or deployed from this repository without preparing host directories.
+#
+# Stack environment variables:
+#   MYSQL_ROOT_PASSWORD  set before the first deploy (default: 123456)
+#   SERVER_SECRET        leave empty on the first deploy; after registering the
+#                        first account in the web console, copy `server.secret`
+#                        from the parameter page, set it here and update the stack
+#   WS_PORT / HTTP_PORT / WEB_PORT
+#                        host ports (defaults 8010 / 8003 / 8002; 8000 is avoided
+#                        because Portainer publishes it by default)
+
+services:
+  # One-shot: downloads the ASR model and writes the manager-api connection config
+  init:
+    image: ghcr.io/dijnie/agent-butler-server:server_latest
+    container_name: agent-butler-init
+    restart: "no"
+    environment:
+      - SERVER_SECRET=${SERVER_SECRET:-}
+    volumes:
+      - server-data:/opt/xiaozhi-esp32-server/data
+      - sensevoice:/opt/xiaozhi-esp32-server/models/SenseVoiceSmall
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        cd /opt/xiaozhi-esp32-server
+        if [ -n "$$SERVER_SECRET" ]; then
+          printf 'manager-api:\n  url: http://web:8002/xiaozhi\n  secret: %s\n' "$$SERVER_SECRET" > data/.config.yaml
+        elif [ ! -f data/.config.yaml ]; then
+          # The server refuses to start without this file; an empty mapping
+          # makes it run standalone on the built-in defaults.
+          echo '{}' > data/.config.yaml
+        fi
+        if [ ! -f models/SenseVoiceSmall/model.pt ]; then
+          python -c "import urllib.request as u; u.urlretrieve('https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt', 'models/SenseVoiceSmall/model.pt.part')"
+          mv models/SenseVoiceSmall/model.pt.part models/SenseVoiceSmall/model.pt
+        fi
+
+  server:
+    image: ghcr.io/dijnie/agent-butler-server:server_latest
+    container_name: agent-butler-server
+    restart: always
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      web:
+        condition: service_started
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    ports:
+      # WebSocket endpoint for devices
+      - "${WS_PORT:-8010}:8000"
+      # HTTP endpoint (vision analysis)
+      - "${HTTP_PORT:-8003}:8003"
+    volumes:
+      - server-data:/opt/xiaozhi-esp32-server/data
+      - sensevoice:/opt/xiaozhi-esp32-server/models/SenseVoiceSmall
+
+  # manager-api and manager-web
+  web:
+    image: ghcr.io/dijnie/agent-butler-server:web_latest
+    container_name: agent-butler-web
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      # Web console
+      - "${WEB_PORT:-8002}:8002"
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - SPRING_DATASOURCE_DRUID_URL=jdbc:mysql://db:3306/xiaozhi_esp32_server?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Ho_Chi_Minh&nullCatalogMeansCurrent=true&connectTimeout=30000&socketTimeout=30000&autoReconnect=true&failOverReadOnly=false&maxReconnects=10
+      - SPRING_DATASOURCE_DRUID_USERNAME=root
+      - SPRING_DATASOURCE_DRUID_PASSWORD=${MYSQL_ROOT_PASSWORD:-123456}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PASSWORD=
+      - SPRING_DATA_REDIS_PORT=6379
+    volumes:
+      - uploadfile:/uploadfile
+
+  db:
+    image: mysql:latest
+    container_name: agent-butler-db
+    restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-123456}
+      - MYSQL_DATABASE=xiaozhi_esp32_server
+      - MYSQL_INITDB_ARGS="--character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:8.0
+    container_name: agent-butler-redis
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  server-data:
+  sensevoice:
+  uploadfile:
+  mysql-data:
