@@ -6,34 +6,34 @@ import { goToPage, isNotNull, showDanger, showWarning } from '../utils/index';
 import i18n from '../i18n/index';
 
 const fly = new Fly()
-// 设置超时
+// Set timeout
 fly.config.timeout = 30000
 
-// 独立 fly 实例给 silent refresh 用，避免任何回调链回到 sendRequest
+// A separate fly instance for silent refresh, so that no callback chain leads back to sendRequest
 const refreshFly = new Fly()
 refreshFly.config.timeout = 30000
 
-// silent refresh：剩 1h 触发换 token，单飞锁避免并发
+// silent refresh: swap the token when 1h remains; a single-flight lock avoids concurrency
 const REFRESH_AHEAD_MS = 60 * 60 * 1000
 let refreshPromise = null
 
 function getTokenExpireAt() {
-    // 与 persistTokenExpireAt 同源读 localStorage（store 走的是 state.token 缓存，
-    // 刚写入 localStorage 后再走 store 拿不到补写的 _localStoredAt）
+    // Read localStorage from the same source as persistTokenExpireAt (the store goes through the state.token cache,
+    // so right after writing localStorage the store cannot see the back-filled _localStoredAt)
     const raw = localStorage.getItem('token')
     if (!raw) return 0
     try {
         const parsed = JSON.parse(raw)
         if (!parsed || !parsed.expire) return 0
-        // login.vue 写入 store 时是 setToken(now)，token 对象里没有 createdAt；
-        // 用 _localStoredAt 作为本地落地时间基准
+        // login.vue writes to the store with setToken(now), and the token object has no createdAt;
+        // use _localStoredAt as the baseline for the local storage time
         return (parsed._localStoredAt || 0) + parsed.expire * 1000
     } catch (e) {
         return 0
     }
 }
 
-// 首次见到该 token 时记下落地时间；同步刷新 localStorage 与 store，保证两端一致
+// Record the storage time the first time this token is seen; refresh localStorage and the store together to keep both sides consistent
 function persistTokenExpireAt() {
     const raw = localStorage.getItem('token')
     if (!raw) return
@@ -56,7 +56,7 @@ function shouldRefresh() {
 }
 
 function doRefresh() {
-    // 直接走 fly.request，绕过 sendRequest，避免死循环触发 silent refresh
+    // Go through fly.request directly, bypassing sendRequest, to avoid an infinite loop triggering silent refresh
     const raw = localStorage.getItem('token')
     if (!raw) return Promise.reject(new Error('no token'))
     let bearer
@@ -94,7 +94,7 @@ function triggerSilentRefresh() {
 }
 
 /**
- * Request服务封装
+ * Request service wrapper
  */
 export default {
     sendRequest,
@@ -112,13 +112,13 @@ function sendRequest() {
         _data: {},
         _header: { 'content-type': 'application/json; charset=utf-8' },
         _url: '',
-        _responseType: undefined, // 新增响应类型字段
+        _responseType: undefined, // Added response type field
         'send'() {
-            // 设置语言请求头
+            // Set the language request header
             const currentLang = i18n.locale;
-            // 转换语言代码格式，将zh_CN转换为zh-CN
+            // Convert the language code format, turning zh_CN into zh-CN
             let acceptLanguage = currentLang.replace('_', '-');
-            // 为英语添加默认地区代码
+            // Add the default region code for English
             if (acceptLanguage === 'en') {
                 acceptLanguage = 'en-US';
             }
@@ -129,7 +129,7 @@ function sendRequest() {
                     this._header.Authorization = 'Bearer ' + (JSON.parse(store.getters.getToken)).token
                 }
 
-                // 打印请求信息
+                // Print request information
                 fly.request(this._url, this._data, {
                     method: this._method,
                     headers: this._header,
@@ -144,16 +144,16 @@ function sendRequest() {
                         this._sucCallback(res)
                     }
                 }).catch((res) => {
-                    // 打印失败响应
+                    // Print the failed response
                     console.log('catch', res)
                     httpHandlerError(res, this._failCallback, this._networkFailCallback)
                 })
             }
 
-            // 剩 1h 内过期就先 silent refresh 再发，确保请求带新 token
+            // If it expires within 1h, silent refresh first and then send, so the request carries the new token
             if (shouldRefresh()) {
                 triggerSilentRefresh().then(doSend).catch(() => {
-                    // 触发 refresh 后被拦截跳登录，这里什么都不用做
+                    // Intercepted and redirected to login after triggering refresh; nothing to do here
                 })
             } else {
                 doSend()
@@ -198,7 +198,7 @@ function sendRequest() {
         'async'(flag) {
             this.async = flag
         },
-        // 新增类型设置方法
+        // Added method for setting the type
         'type'(responseType) {
             this._responseType = responseType;
             return this;
@@ -207,14 +207,14 @@ function sendRequest() {
 }
 
 /**
- * Info 请求完成后返回信息
- * failCallback 回调函数
- * networkFailCallback 回调函数
+ * Info The information returned after the request completes
+ * failCallback Callback function
+ * networkFailCallback Callback function
  */
-// 在错误处理函数中添加日志
+// Add logging in the error handler
 function httpHandlerError(info, failCallback, networkFailCallback) {
 
-    /** 请求成功，退出该函数 可以根据项目需求来判断是否请求成功。这里判断的是status为200的时候是成功 */
+    /** Request succeeded, exit this function. Whether a request succeeded can be decided according to project needs. Here status 200 is treated as success */
     let networkError = false
     if (info.status === 200) {
         if (info.data.code === 'success' || info.data.code === 0 || info.data.code === undefined) {
@@ -224,7 +224,7 @@ function httpHandlerError(info, failCallback, networkFailCallback) {
             goToPage(Constant.PAGE.LOGIN, true);
             return true
         } else {
-            // 直接使用后端返回的国际化消息
+            // Use the internationalized message returned by the backend directly
             let errorMessage = info.data.msg;
             
             if (failCallback) {
@@ -238,7 +238,7 @@ function httpHandlerError(info, failCallback, networkFailCallback) {
     if (networkFailCallback) {
         networkFailCallback(info)
     } else {
-        showDanger(`网络请求出现了错误【${info.status}】`)
+        showDanger(`A network request error occurred [${info.status}]`)
     }
     return true
 }
@@ -253,9 +253,9 @@ function reAjaxFun(fn) {
     }
     let ajaxIndex = parseInt((nowTimeSec - requestTime) / reAjaxSec)
     if (ajaxIndex > 10) {
-        showWarning('似乎无法连接服务器')
+        showWarning('Unable to connect to the server')
     } else {
-        showWarning('正在连接服务器(' + ajaxIndex + ')')
+        showWarning('Connecting to the server (' + ajaxIndex + ')')
     }
     if (ajaxIndex < 10 && fn) {
         setTimeout(() => {

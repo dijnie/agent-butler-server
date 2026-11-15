@@ -11,7 +11,7 @@ import './styles/global.scss';
 import { register as registerServiceWorker } from './registerServiceWorker';
 import featureManager from './utils/featureManager';
 
-// 创建事件总线，用于组件间通信
+// Create an event bus for communication between components
 Vue.prototype.$eventBus = new Vue();
 
 Vue.use(ElementUI);
@@ -19,17 +19,17 @@ locale.i18n((key, value) => i18n.t(key, value))
 
 Vue.config.productionTip = false
 
-// 注册Service Worker
+// Register the Service Worker
 registerServiceWorker();
 
-// 应用启动时把 localStorage 里的 token 同步进 store，避免守卫放行后首次请求时
-// httpRequest 读到 state.token=null 而漏带 Authorization 头触发 401 跳登录
+// On app startup, sync the token in localStorage into the store, so that on the first request after the guard lets it through
+// httpRequest does not read state.token=null, omit the Authorization header, and trigger a 401 redirect to login
 const cachedToken = localStorage.getItem('token')
 if (cachedToken) {
   store.commit('setToken', cachedToken)
 }
 
-// 创建Vue实例
+// Create the Vue instance
 new Vue({
   router,
   store,
