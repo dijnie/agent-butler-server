@@ -1,8 +1,8 @@
-# 生产镜像，仅包含应用代码
+# Production image, containing only the application code
 ARG BASE_IMAGE=ghcr.io/xinnan-tech/xiaozhi-esp32-server:server-base
 FROM ${BASE_IMAGE}
 
 COPY main/xiaozhi-server .
 
-# 启动应用
+# Start the application
 CMD ["python", "app.py"]

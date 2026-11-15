@@ -170,8 +170,8 @@ Spearheaded by Professor Siyuan Liu's Team (South China University of Technology
 #### 🚀 部署方式选择
 | 部署方式 | 特点 | 适用场景 | 部署文档 | 配置要求 | 视频教程 | 
 |---------|------|---------|---------|---------|---------|
-| **最简化安装** | 智能对话、单智能体管理 | 低配置环境，数据存储在配置文件，无需数据库 | [①Docker版](../Deployment.md#%E6%96%B9%E5%BC%8F%E4%B8%80docker%E5%8F%AA%E8%BF%90%E8%A1%8Cserver) / [②源码部署](../Deployment.md#%E6%96%B9%E5%BC%8F%E4%BA%8C%E6%9C%AC%E5%9C%B0%E6%BA%90%E7%A0%81%E5%8F%AA%E8%BF%90%E8%A1%8Cserver)| 本地跑 `FunASR` 较耗内存，全部走 API 时资源占用低 | - | 
-| **全模块安装** | 智能对话、多用户管理、多智能体管理、智控台界面操作 | 完整功能体验，数据存储在数据库 |[①Docker版](../Deployment_all.md#%E6%96%B9%E5%BC%8F%E4%B8%80docker%E8%BF%90%E8%A1%8C%E5%85%A8%E6%A8%A1%E5%9D%97) / [②源码部署](../Deployment_all.md#%E6%96%B9%E5%BC%8F%E4%BA%8C%E6%9C%AC%E5%9C%B0%E6%BA%90%E7%A0%81%E8%BF%90%E8%A1%8C%E5%85%A8%E6%A8%A1%E5%9D%97) / [③源码部署自动更新教程](../dev-ops-integration.md) | 本地跑 `FunASR` 较耗内存，另需数据库资源，全部走 API 时资源占用低| [本地源码启动视频教程](https://www.bilibili.com/video/BV1wBJhz4Ewe) | 
+| **最简化安装** | 智能对话、单智能体管理 | 低配置环境，数据存储在配置文件，无需数据库 | [①Docker版](../Deployment.md#option-1-run-only-the-server-with-docker) / [②源码部署](../Deployment.md#option-2-run-only-the-server-from-local-source-code)| 本地跑 `FunASR` 较耗内存，全部走 API 时资源占用低 | - | 
+| **全模块安装** | 智能对话、多用户管理、多智能体管理、智控台界面操作 | 完整功能体验，数据存储在数据库 |[①Docker版](../Deployment_all.md#option-1-run-all-modules-with-docker) / [②源码部署](../Deployment_all.md#option-2-run-all-modules-from-local-source-code) / [③源码部署自动更新教程](../dev-ops-integration.md) | 本地跑 `FunASR` 较耗内存，另需数据库资源，全部走 API 时资源占用低| [本地源码启动视频教程](https://www.bilibili.com/video/BV1wBJhz4Ewe) | 
 
 常见问题及相关教程，可参考[这个链接](../FAQ.md)
 

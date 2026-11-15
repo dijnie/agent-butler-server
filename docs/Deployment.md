@@ -1,24 +1,24 @@
-# 部署架构图
-![请参考-最简化架构图](../docs/images/deploy1.png)
-# 方式一：Docker只运行Server
+# Deployment Architecture Diagram
+![See the minimal architecture diagram](../docs/images/deploy1.png)
+# Option 1: Run only the Server with Docker
 
-本项目发行的docker镜像同时提供`amd64`和`arm64`两种架构，可以直接拉取使用；如需自定义镜像，可按照[这个教程](docker-build.md)在本机编译。
+The docker images released by this project are available for both `amd64` and `arm64` architectures and can be pulled and used directly. To customize the image, follow [this tutorial](docker-build.md) to build it locally.
 
-## 1. 安装docker
+## 1. Install docker
 
-如果您的电脑还没安装docker，可以按照这里的教程安装：[docker安装](https://www.runoob.com/docker/ubuntu-docker-install.html)
+If docker is not installed on your computer yet, you can install it by following this tutorial: [docker installation](https://www.runoob.com/docker/ubuntu-docker-install.html)
 
-安装好docker后，进继续。
+After docker is installed, continue.
 
-### 1.1 手动部署
+### 1.1 Manual deployment
 
-#### 1.1.1 创建目录
+#### 1.1.1 Create the directories
 
-安装完docker后，你需要为这个项目找一个安放配置文件的目录，例如我们可以新建一个文件夹叫`xiaozhi-server`。
+After installing docker, you need to find a directory for this project's configuration files. For example, we can create a folder called `xiaozhi-server`.
 
-创建好目录后，你需要在`xiaozhi-server`下面创建`data`文件夹和`models`文件夹，`models`下面还要再创建`SenseVoiceSmall`文件夹。
+After creating the directory, create a `data` folder and a `models` folder under `xiaozhi-server`, and then create a `SenseVoiceSmall` folder under `models`.
 
-最终目录结构如下所示：
+The final directory structure is as follows:
 
 ```
 xiaozhi-server
@@ -27,34 +27,34 @@ xiaozhi-server
      ├─ SenseVoiceSmall
 ```
 
-#### 1.1.2 下载语音识别模型文件
+#### 1.1.2 Download the speech recognition model file
 
-你需要下载语音识别的模型文件，因为本项目的默认语音识别用的是本地离线语音识别方案。可通过这个方式下载
-[跳转到下载语音识别模型文件](#模型文件)
+You need to download the speech recognition model file, because this project's default speech recognition uses a local offline solution. You can download it this way:
+[Jump to downloading the speech recognition model file](#model-files)
 
-下载完后，回到本教程。
+After downloading, return to this tutorial.
 
-#### 1.1.3 下载配置文件
+#### 1.1.3 Download the configuration files
 
-你需要下载两个配置文件：`docker-compose.yml` 和 `config.yaml`。需要从项目仓库下载这两个文件。
+You need to download two configuration files: `docker-compose.yml` and `config.yaml`. Both files are downloaded from the project repository.
 
-##### 1.1.3.1 下载 docker-compose.yml
+##### 1.1.3.1 Download docker-compose.yml
 
-用浏览器打开[这个链接](../main/xiaozhi-server/docker-compose.yml)。
+Open [this link](../main/xiaozhi-server/docker-compose.yml) in a browser.
 
-在页面的右侧找到名称为`RAW`按钮，在`RAW`按钮的旁边，找到下载的图标，点击下载按钮，下载`docker-compose.yml`文件。 把文件下载到你的
-`xiaozhi-server`中。
+On the right side of the page, find the button named `RAW`. Next to the `RAW` button, find the download icon and click it to download the `docker-compose.yml` file. Download the file into your
+`xiaozhi-server`.
 
-下载完后，回到本教程继续往下。
+After downloading, return to this tutorial and continue.
 
-##### 1.1.3.2 创建 config.yaml
+##### 1.1.3.2 Create config.yaml
 
-用浏览器打开[这个链接](../main/xiaozhi-server/config.yaml)。
+Open [this link](../main/xiaozhi-server/config.yaml) in a browser.
 
-在页面的右侧找到名称为`RAW`按钮，在`RAW`按钮的旁边，找到下载的图标，点击下载按钮，下载`config.yaml`文件。 把文件下载到你的
-`xiaozhi-server`下面的`data`文件夹中，然后把`config.yaml`文件重命名为`.config.yaml`。
+On the right side of the page, find the button named `RAW`. Next to the `RAW` button, find the download icon and click it to download the `config.yaml` file. Download the file into the `data` folder under your
+`xiaozhi-server`, then rename the `config.yaml` file to `.config.yaml`.
 
-下载完配置文件后，我们确认一下整个`xiaozhi-server`里面的文件如下所示：
+After downloading the configuration files, let's confirm that the files in `xiaozhi-server` look like this:
 
 ```
 xiaozhi-server
@@ -66,39 +66,39 @@ xiaozhi-server
        ├─ model.pt
 ```
 
-如果你的文件目录结构也是上面的，就继续往下。如果不是，你就再仔细看看是不是漏操作了什么。
+If your directory structure matches the one above, continue. If not, look carefully again to see whether you missed a step.
 
-## 2. 配置项目文件
+## 2. Configure the project files
 
-接下来，程序还不能直接运行，你需要配置一下，你到底使用的是什么模型。你可以看这个教程：
-[跳转到配置项目文件](#配置项目)
+Next, the program cannot run yet. You need to configure which models you actually use. You can read this tutorial:
+[Jump to configuring the project files](#configure-the-project)
 
-配置完项目文件后，回到本教程继续往下。
+After configuring the project files, return to this tutorial and continue.
 
-## 3. 执行docker命令
+## 3. Run the docker commands
 
-打开命令行工具，使用`终端`或`命令行`工具 进入到你的`xiaozhi-server`，执行以下命令
+Open a command-line tool (`Terminal` or `Command Prompt`), go to your `xiaozhi-server`, and run the following command
 
 ```
 docker compose up -d
 ```
 
-执行完后，再执行以下命令，查看日志信息。
+After that, run the following command to view the logs.
 
 ```
 docker logs -f xiaozhi-esp32-server
 ```
 
-这时，你就要留意日志信息，可以根据这个教程，判断是否成功了。[跳转到运行状态确认](#运行状态确认)
+At this point, pay attention to the log output. You can use this tutorial to determine whether it succeeded: [Jump to confirming the running status](#confirm-running-status)
 
-## 4. 版本升级操作
+## 4. Upgrade the version
 
-如果后期想升级版本，可以这么操作
+If you want to upgrade the version later, you can do the following
 
-4.1、备份好`data`文件夹中的`.config.yaml`文件，一些关键的配置到时复制到新的`.config.yaml`文件里。
-请注意是对关键密钥逐个复制，不要直接覆盖。因为新的`.config.yaml`文件可能有一些新的配置项，旧的`.config.yaml`文件不一定有。
+4.1. Back up the `.config.yaml` file in the `data` folder, and later copy the key settings into the new `.config.yaml` file.
+Note that you should copy the key secrets one by one and not simply overwrite the file, because the new `.config.yaml` file may contain new configuration items that the old `.config.yaml` file does not have.
 
-4.2、执行以下命令
+4.2. Run the following commands
 
 ```
 docker stop xiaozhi-esp32-server
@@ -106,21 +106,21 @@ docker rm xiaozhi-esp32-server
 docker rmi ghcr.nju.edu.cn/xinnan-tech/xiaozhi-esp32-server:server_latest
 ```
 
-4.3、重新按docker方式部署
+4.3. Deploy again the docker way
 
-# 方式二：本地源码只运行Server
+# Option 2: Run only the Server from local source code
 
-## 1.安装基础环境
+## 1. Install the base environment
 
-本项目使用`conda`管理依赖环境。如果不方便安装`conda`，需要根据实际的操作系统安装好`libopus`和`ffmpeg`。
-如果确定使用`conda`，则安装好后，开始执行以下命令。
+This project uses `conda` to manage the dependency environment. If it is inconvenient to install `conda`, you need to install `libopus` and `ffmpeg` according to your actual operating system.
+If you decide to use `conda`, after installing it, start running the following commands.
 
-重要提示！windows 用户，可以通过安装`Anaconda`来管理环境。安装好`Anaconda`后，在`开始`那里搜索`anaconda`相关的关键词，
-找到`Anaconda Prompt`，使用管理员身份运行它。如下图。
+Important note! Windows users can install `Anaconda` to manage the environment. After installing `Anaconda`, search for `anaconda`-related keywords in the `Start` menu,
+find `Anaconda Prompt`, and run it as administrator. See the figure below.
 
 ![conda_prompt](./images/conda_env_1.png)
 
-运行之后，如果你能看到命令行窗口前面有一个(base)字样，说明你成功进入了`conda`环境。那么你就可以执行以下命令了。
+After running it, if you can see (base) at the front of the command-line window, you have successfully entered the `conda` environment. Then you can run the following commands.
 
 ![conda_env](./images/conda_env_2.png)
 
@@ -129,7 +129,7 @@ conda remove -n xiaozhi-esp32-server --all -y
 conda create -n xiaozhi-esp32-server python=3.10 -y
 conda activate xiaozhi-esp32-server
 
-# 添加清华源通道
+# Add the Tsinghua mirror channels
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free
 conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
@@ -137,77 +137,77 @@ conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/
 conda install libopus -y
 conda install ffmpeg -y
 
-# 在 Linux 环境下进行部署时,如出现类似缺失 libiconv.so.2 动态库的报错 请通过以下命令进行安装
+# When deploying on Linux, if you get an error about a missing dynamic library such as libiconv.so.2, install it with the following command
 conda install libiconv -y
 ```
 
-请注意，以上命令，不是一股脑执行就成功的，你需要一步步执行，每一步执行完后，都检查一下输出的日志，查看是否成功。
+Note that the commands above will not necessarily succeed if you run them all at once. Run them step by step, and after each step check the output log to see whether it succeeded.
 
-## 2.安装本项目依赖
+## 2. Install the project dependencies
 
-你先要下载本项目源码，源码可以通过`git clone`命令下载，如果你不熟悉`git clone`命令。
+First you need to download the project source code. The source code can be downloaded with the `git clone` command; if you are not familiar with the `git clone` command, do the following.
 
-你可以用浏览器打开这个地址`https://github.com/xinnan-tech/xiaozhi-esp32-server.git`
+You can open this address in a browser: `https://github.com/xinnan-tech/xiaozhi-esp32-server.git`
 
-打开完，找到页面中一个绿色的按钮，写着`Code`的按钮，点开它，然后你就看到`Download ZIP`的按钮。
+After it opens, find the green button on the page labeled `Code`, click it, and you will see the `Download ZIP` button.
 
-点击它，下载本项目源码压缩包。下载到你电脑后，解压它，此时它的名字可能叫`xiaozhi-esp32-server-main`
-你需要把它重命名成`xiaozhi-esp32-server`，在这个文件里，进入到`main`文件夹，再进入到`xiaozhi-server`，好了请记住这个目录`xiaozhi-server`。
+Click it to download the project source code archive. After it is downloaded to your computer, extract it. Its name may be `xiaozhi-esp32-server-main` at this point.
+Rename it to `xiaozhi-esp32-server`, go into the `main` folder inside it, and then into `xiaozhi-server`. Remember this directory, `xiaozhi-server`.
 
 ```
-# 继续使用conda环境
+# Continue using the conda environment
 conda activate xiaozhi-esp32-server
-# 进入到你的项目根目录，再进入main/xiaozhi-server
+# Go to your project root directory, then into main/xiaozhi-server
 cd main/xiaozhi-server
 pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
 pip install -r requirements.txt
 ```
 
-## 3.下载语音识别模型文件
+## 3. Download the speech recognition model file
 
-你需要下载语音识别的模型文件，因为本项目的默认语音识别用的是本地离线语音识别方案。可通过这个方式下载
-[跳转到下载语音识别模型文件](#模型文件)
+You need to download the speech recognition model file, because this project's default speech recognition uses a local offline solution. You can download it this way:
+[Jump to downloading the speech recognition model file](#model-files)
 
-下载完后，回到本教程。
+After downloading, return to this tutorial.
 
-## 4.配置项目文件
+## 4. Configure the project files
 
-接下来，程序还不能直接运行，你需要配置一下，你到底使用的是什么模型。你可以看这个教程：
-[跳转到配置项目文件](#配置项目)
+Next, the program cannot run yet. You need to configure which models you actually use. You can read this tutorial:
+[Jump to configuring the project files](#configure-the-project)
 
-## 5.运行项目
+## 5. Run the project
 
 ```
-# 确保在xiaozhi-server目录下执行
+# Make sure to run this in the xiaozhi-server directory
 conda activate xiaozhi-esp32-server
 python app.py
 ```
-这时，你就要留意日志信息，可以根据这个教程，判断是否成功了。[跳转到运行状态确认](#运行状态确认)
+At this point, pay attention to the log output. You can use this tutorial to determine whether it succeeded: [Jump to confirming the running status](#confirm-running-status)
 
 
-# 汇总
+# Summary
 
-## 配置项目
+## Configure the Project
 
-如果你的`xiaozhi-server`目录没有`data`，你需要创建`data`目录。
-如果你的`data`下面没有`.config.yaml`文件，有两个方式，任选一种：
+If your `xiaozhi-server` directory has no `data` directory, you need to create it.
+If there is no `.config.yaml` file under `data`, there are two ways; choose either one:
 
-第一个方式：你可以把`xiaozhi-server`目录下的`config.yaml`文件复制到`data`，并重命名为`.config.yaml`。在此文件上修改
+Option 1: copy the `config.yaml` file in the `xiaozhi-server` directory to `data` and rename it to `.config.yaml`. Then make your changes in this file.
 
-第二个方式：你也可以创建在`data`目录下手动创建`.config.yaml`空文件，然后在这个文件中增加必要的配置信息，系统会优先读取`.config.yaml`文件的配置，如果`.config.yaml`没有配置的，系统会自动去加载`xiaozhi-server`目录下的`config.yaml`的配置。推荐使用这种方式，这种方式是最简洁的方式。
+Option 2: manually create an empty `.config.yaml` file in the `data` directory and add the necessary configuration to it. The system reads the configuration in `.config.yaml` first, and for anything not configured in `.config.yaml`, it automatically loads the configuration from `config.yaml` in the `xiaozhi-server` directory. This is the recommended approach, as it is the most concise.
 
-- 默认的LLM使用的是`ChatGLMLLM`，你需要配置密钥，因为他们的模型，虽然有免费的，但是仍要去[官网](https://bigmodel.cn/usercenter/proj-mgmt/apikeys)注册密钥，才能启动。
+- The default LLM is `ChatGLMLLM`. You need to configure a key: although their models include free ones, you still need to register a key on the [official website](https://bigmodel.cn/usercenter/proj-mgmt/apikeys) before it can start.
 
-以下是一个能正常跑起来的，最简单的`.config.yaml`配置示例
+Here is the simplest `.config.yaml` configuration example that runs normally
 
 ```
 server:
-  websocket: ws://你的ip或者域名:端口号/xiaozhi/v1/
+  websocket: ws://your-ip-or-domain:port/xiaozhi/v1/
 prompt: |
-  我是一个叫小智/小志的台湾女孩，说话机车，声音好听，习惯简短表达，爱用网络梗。
-  我的男朋友是一个程序员，梦想是开发出一个机器人，能够帮助人们解决生活中的各种问题。
-  我是一个喜欢哈哈大笑的女孩，爱东说西说吹牛，不合逻辑的也照吹，就要逗别人开心。
-  请你像一个人一样说话，请勿返回配置xml及其他特殊字符。
+  I am a Taiwanese girl called Xiaozhi/Xiaozhi. I am fussy when I talk, have a nice voice, tend to keep my expressions short, and love internet memes.
+  My boyfriend is a programmer whose dream is to build a robot that can help people solve all kinds of problems in life.
+  I am a girl who loves to laugh out loud, likes to chat about everything and brag, even illogically, just to make others happy.
+  Please speak like a person, and do not return configuration XML or other special characters.
 
 selected_module:
   LLM: ChatGLMLLM
@@ -217,73 +217,73 @@ LLM:
     api_key: xxxxxxxxxxxxxxx.xxxxxx
 ```
 
-建议先将最简单的配置运行起来，然后再去[`../main/xiaozhi-server/config.yaml`](../main/xiaozhi-server/config.yaml)阅读配置的使用说明。
-比如你要换更换模型，修改`selected_module`下的配置就行。
+It is recommended to get the simplest configuration running first, and then read the usage notes in [`../main/xiaozhi-server/config.yaml`](../main/xiaozhi-server/config.yaml).
+For example, to switch models, just modify the configuration under `selected_module`.
 
-## 模型文件
+## Model Files
 
-本项目语音识别模型，默认使用`SenseVoiceSmall`模型，进行语音转文字。因为模型较大，需要独立下载，下载后把`model.pt`
-文件放在`models/SenseVoiceSmall`
-目录下。下面两个下载路线任选一个。
+The speech recognition model of this project uses the `SenseVoiceSmall` model by default for speech-to-text. Because the model is large, it needs to be downloaded separately. After downloading, put the `model.pt`
+file in the `models/SenseVoiceSmall`
+directory. Choose either of the two download routes below.
 
-- 线路一：阿里魔搭下载[SenseVoiceSmall](https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt)
-- 线路二：百度网盘下载[SenseVoiceSmall](https://pan.baidu.com/share/init?surl=QlgM58FHhYv1tFnUT_A8Sg&pwd=qvna) 提取码:
+- Route 1: download from Alibaba ModelScope [SenseVoiceSmall](https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt)
+- Route 2: download from Baidu Netdisk [SenseVoiceSmall](https://pan.baidu.com/share/init?surl=QlgM58FHhYv1tFnUT_A8Sg&pwd=qvna) extraction code:
   `qvna`
 
-## 运行状态确认
+## Confirm Running Status
 
-如果你能看到，类似以下日志,则是本项目服务启动成功的标志。
+If you can see logs similar to the following, the project service has started successfully.
 
 ```
-250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-OTA接口是           http://192.168.4.123:8003/xiaozhi/ota/
-250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-视觉分析接口是      http://192.168.4.123:8003/mcp/vision/explain
-250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-Websocket地址是     ws://192.168.4.123:8000/xiaozhi/v1/
-250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-=======上面的地址是websocket协议地址，请勿用浏览器访问=======
-250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-如想测试websocket请启动digital-human模块，打开浏览器交互测试
+250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-OTA endpoint is        http://192.168.4.123:8003/xiaozhi/ota/
+250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-Vision analysis endpoint is  http://192.168.4.123:8003/mcp/vision/explain
+250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-Websocket address is  ws://192.168.4.123:8000/xiaozhi/v1/
+250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-=======The addresses above are websocket protocol addresses, do not open them in a browser=======
+250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-To test websocket, start the digital-human module and test interactively in a browser
 250427 13:04:20[0.9.8_00000000000000][__main__]-INFO-=============================================================
 ```
 
-正常来说，如果您是通过源码运行本项目，日志会有你的接口地址信息。
-但是如果你用docker部署，那么你的日志里给出的接口地址信息就不是真实的接口地址。
+Normally, if you run this project from source code, the log will show your endpoint addresses.
+But if you deploy with docker, the endpoint addresses shown in your log are not the real ones.
 
-最正确的方法，是根据电脑的局域网IP来确定你的接口地址。
-如果你的电脑的局域网IP比如是`192.168.1.25`，那么你的接口地址就是：`ws://192.168.1.25:8000/xiaozhi/v1/`，对应的OTA地址就是：`http://192.168.1.25:8003/xiaozhi/ota/`。
+The most reliable method is to determine your endpoint address from your computer's LAN IP.
+If your computer's LAN IP is, for example, `192.168.1.25`, then your endpoint address is `ws://192.168.1.25:8000/xiaozhi/v1/`, and the corresponding OTA address is `http://192.168.1.25:8003/xiaozhi/ota/`.
 
-这个信息很有用的，后面`编译esp32固件`需要用到。
+This information is very useful and will be needed later when you `build the esp32 firmware`.
 
-接下来，你就可以开始操作你的esp32设备了，你可以`自行编译esp32固件`也可以配置使用`虾哥编译好的1.6.1以上版本的固件`。两个任选一个
+Next, you can start working with your esp32 device. You can `build the esp32 firmware yourself` or configure it to use `Xia Ge's prebuilt firmware, version 1.6.1 or above`. Choose either one.
 
-1、 [编译自己的esp32固件](firmware-build.md)了。
+1. [Build your own esp32 firmware](firmware-build.md).
 
-2、 [基于虾哥编译好的固件配置自定义服务器](firmware-setting.md)了。
+2. [Configure a custom server based on Xia Ge's prebuilt firmware](firmware-setting.md).
 
-# 常见问题
-以下是一些常见问题，供参考：
+# FAQ
+Here are some frequently asked questions for reference:
 
-1、[为什么我说的话，小智识别出来很多韩文、日文、英文](./FAQ.md)<br/>
-2、[为什么会出现“TTS 任务出错 文件不存在”？](./FAQ.md)<br/>
-3、[TTS 经常失败，经常超时](./FAQ.md)<br/>
-4、[使用Wifi能连接自建服务器，但是4G模式却接不上](./FAQ.md)<br/>
-5、[如何提高小智对话响应速度？](./FAQ.md)<br/>
-6、[我说话很慢，停顿时小智老是抢话](./FAQ.md)<br/>
-## 部署相关教程
-1、[如何自动拉取本项目最新代码自动编译和启动](./dev-ops-integration.md)<br/>
-2、[如何部署MQTT网关开启MQTT+UDP协议](./mqtt-gateway-integration.md)<br/>
-3、[如何与Nginx集成](https://github.com/xinnan-tech/xiaozhi-esp32-server/issues/791)<br/>
-## 拓展相关教程
-1、[如何开启手机号码注册智控台](./ali-sms-integration.md)<br/>
-2、[如何集成HomeAssistant实现智能家居控制](./homeassistant-integration.md)<br/>
-3、[如何开启视觉模型实现拍照识物](./mcp-vision-integration.md)<br/>
-4、[如何部署MCP接入点](./mcp-endpoint-enable.md)<br/>
-5、[如何接入MCP接入点](./mcp-endpoint-integration.md)<br/>
-6、[如何开启声纹识别](./voiceprint-integration.md)<br/>
-7、[新闻插件源配置指南](./newsnow_plugin_config.md)<br/>
-8、[天气插件使用指南](./weather-integration.md)<br/>
-## 语音克隆、本地语音部署相关教程
-1、[如何在智控台克隆音色](./huoshan-streamTTS-voice-cloning.md)<br/>
-2、[如何部署集成index-tts本地语音](./index-stream-integration.md)<br/>
-3、[如何部署集成fish-speech本地语音](./fish-speech-integration.md)<br/>
-4、[如何部署集成PaddleSpeech本地语音](./paddlespeech-deploy.md)<br/>
-## 性能测试教程
-1、[各组件速度测试指南](./performance_tester.md)<br/>
-2、[定期公开测试结果](https://github.com/xinnan-tech/xiaozhi-performance-research)<br/>
+1. [Why does Xiaozhi recognize a lot of Korean, Japanese, and English from what I say](./FAQ.md)<br/>
+2. [Why does the error "TTS task error: file does not exist" appear?](./FAQ.md)<br/>
+3. [TTS often fails or times out](./FAQ.md)<br/>
+4. [The device can connect to a self-hosted server over Wi-Fi, but not in 4G mode](./FAQ.md)<br/>
+5. [How can I improve Xiaozhi's conversation response speed?](./FAQ.md)<br/>
+6. [I speak slowly and Xiaozhi keeps cutting in when I pause](./FAQ.md)<br/>
+## Deployment tutorials
+1. [How to automatically pull the latest project code, build, and start it](./dev-ops-integration.md)<br/>
+2. [How to deploy the MQTT gateway to enable the MQTT+UDP protocol](./mqtt-gateway-integration.md)<br/>
+3. [How to integrate with Nginx](https://github.com/xinnan-tech/xiaozhi-esp32-server/issues/791)<br/>
+## Extension tutorials
+1. [How to enable phone number registration for the control console](./ali-sms-integration.md)<br/>
+2. [How to integrate HomeAssistant for smart home control](./homeassistant-integration.md)<br/>
+3. [How to enable the vision model for photo-based object recognition](./mcp-vision-integration.md)<br/>
+4. [How to deploy the MCP endpoint](./mcp-endpoint-enable.md)<br/>
+5. [How to connect to the MCP endpoint](./mcp-endpoint-integration.md)<br/>
+6. [How to enable voiceprint recognition](./voiceprint-integration.md)<br/>
+7. [News plugin source configuration guide](./newsnow_plugin_config.md)<br/>
+8. [Weather plugin usage guide](./weather-integration.md)<br/>
+## Voice cloning and local voice deployment tutorials
+1. [How to clone a voice in the control console](./huoshan-streamTTS-voice-cloning.md)<br/>
+2. [How to deploy and integrate index-tts local voice](./index-stream-integration.md)<br/>
+3. [How to deploy and integrate fish-speech local voice](./fish-speech-integration.md)<br/>
+4. [How to deploy and integrate PaddleSpeech local voice](./paddlespeech-deploy.md)<br/>
+## Performance testing tutorials
+1. [Component speed testing guide](./performance_tester.md)<br/>
+2. [Regularly published test results](https://github.com/xinnan-tech/xiaozhi-performance-research)<br/>
