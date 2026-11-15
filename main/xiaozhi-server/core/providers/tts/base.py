@@ -45,30 +45,30 @@ class TTSProviderBase(ABC):
         self.tts_audio_first_sentence = True
         self.before_stop_play_files = []
         self.report_on_last = False
-        # sentence_id 到文本的映射，用于流式TTS获取正确的字幕文本
+        # Mapping from sentence_id to text, used by streaming TTS to get the correct subtitle text
         self._sentence_text_map = {}
-        # 加载替换词，用于一次性正则替换
+        # Load replacement words for one-pass regex replacement
         raw_words = config.get("correct_words", [])
         self.correct_words = {}
         for item in raw_words:
             parts = item.split("|", 1)
             if len(parts) == 2:
                 self.correct_words[parts[0]] = parts[1]
-        # 构建正则表达式，使用最长匹配优先（排序后转义拼接）
+        # Build the regex with longest match first (sort, then escape and join)
         if self.correct_words:
-            # 按key长度降序排列，长的先匹配，避免短词部分干扰
+            # Sort by key length in descending order so longer keys match first, avoiding interference from partial short-word matches
             sorted_keys = sorted(self.correct_words.keys(), key=len, reverse=True)
             pattern_str = "|".join(re.escape(k) for k in sorted_keys)
             self._correct_words_pattern = re.compile(pattern_str)
-            # 构建反向替换正则，用于将TTS服务返回的替换后文本还原为原始文本（字幕显示）
+            # Build the reverse replacement regex, used to restore the replaced text returned by the TTS service to the original text (subtitle display)
             reverse_map = {v: k for k, v in self.correct_words.items()}
             sorted_reverse_keys = sorted(reverse_map.keys(), key=len, reverse=True)
             reverse_pattern_str = "|".join(re.escape(k) for k in sorted_reverse_keys)
             self._reverse_words_pattern = re.compile(reverse_pattern_str)
             self._reverse_words_map = reverse_map
-            # 流式滑动窗口：按首字分组的替换词字典，用于快速查找
+            # Streaming sliding window: dict of replacement words grouped by first character, for fast lookup
             self._words_by_first_char = {}
-            for key in sorted_keys:  # 使用已按长度降序排列的keys，确保长词优先匹配
+            for key in sorted_keys:  # Use the keys already sorted by descending length so longer words match first
                 first_char = key[0] if key else ""
                 if first_char not in self._words_by_first_char:
                     self._words_by_first_char[first_char] = []
@@ -78,7 +78,7 @@ class TTSProviderBase(ABC):
             self._reverse_words_pattern = None
             self._reverse_words_map = None
 
-        # 流式滑动窗口：待匹配的缓存文本
+        # Streaming sliding window: buffered text pending a match
         self._pending_prefix = ""
         self.tts_text_buff = []
         self.punctuations = (
@@ -116,27 +116,27 @@ class TTSProviderBase(ABC):
         )
 
     def handle_opus(self, opus_data: bytes):
-        logger.bind(tag=TAG).debug(f"推送数据到队列里面帧数～～ {len(opus_data)}")
+        logger.bind(tag=TAG).debug(f"Number of frames pushed to the queue~~ {len(opus_data)}")
         self.tts_audio_queue.put((SentenceType.MIDDLE, opus_data, None, getattr(self, 'current_sentence_id', None)))
 
     def handle_audio_file(self, file_audio: bytes, text):
         self.before_stop_play_files.append((file_audio, text))
 
     def to_tts_stream(self, text, opus_handler: Callable[[bytes], None] = None) -> None:
-        # 保留原始文本用于显示/上报
+        # Keep the original text for display/reporting
         original_text = text
         text = MarkdownCleaner.clean_markdown(text)
-        # 使用正则一次性替换，避免重复遍历和部分匹配问题
+        # Replace in one pass with the regex, avoiding repeated traversal and partial-match problems
         if self._correct_words_pattern:
             text = self._correct_words_pattern.sub(lambda m: self.correct_words[m.group(0)], text)
         max_repeat_time = 5
         if self.delete_audio_file:
-            # 需要删除文件的直接转为音频数据
+            # When the file is to be deleted, convert directly to audio data
             while max_repeat_time > 0:
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
                     if audio_bytes:
-                        # 使用原始文本用于显示/上报
+                        # Use the original text for display/reporting
                         self.tts_audio_queue.put((SentenceType.FIRST, None, original_text, getattr(self, 'current_sentence_id', None)))
                         audio_bytes_to_data_stream(
                             audio_bytes,
@@ -151,16 +151,16 @@ class TTSProviderBase(ABC):
                         max_repeat_time -= 1
                 except Exception as e:
                     logger.bind(tag=TAG).warning(
-                        f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                        f"Speech generation failed {5 - max_repeat_time + 1} time(s): {original_text}, error: {e}"
                     )
                     max_repeat_time -= 1
             if max_repeat_time > 0:
                 logger.bind(tag=TAG).info(
-                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次"
+                    f"Speech generation succeeded: {original_text}, retried {5 - max_repeat_time} time(s)"
                 )
             else:
                 logger.bind(tag=TAG).error(
-                    f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                    f"Speech generation failed: {original_text}, please check whether the network or service is working properly"
                 )
             return None
         else:
@@ -171,20 +171,20 @@ class TTSProviderBase(ABC):
                         asyncio.run(self.text_to_speak(text, tmp_file))
                     except Exception as e:
                         logger.bind(tag=TAG).warning(
-                            f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                            f"Speech generation failed {5 - max_repeat_time + 1} time(s): {original_text}, error: {e}"
                         )
-                        # 未执行成功，删除文件
+                        # Not successful, delete the file
                         if os.path.exists(tmp_file):
                             os.remove(tmp_file)
                         max_repeat_time -= 1
 
                 if max_repeat_time > 0:
                     logger.bind(tag=TAG).info(
-                        f"语音生成成功: {original_text}:{tmp_file}，重试{5 - max_repeat_time}次"
+                        f"Speech generation succeeded: {original_text}:{tmp_file}, retried {5 - max_repeat_time} time(s)"
                     )
                 else:
                     logger.bind(tag=TAG).error(
-                        f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                        f"Speech generation failed: {original_text}, please check whether the network or service is working properly"
                     )
                 self.tts_audio_queue.put((SentenceType.FIRST, None, original_text, getattr(self, 'current_sentence_id', None)))
                 self._process_audio_file_stream(tmp_file, callback=opus_handler)
@@ -193,14 +193,14 @@ class TTSProviderBase(ABC):
                 return None
     
     def to_tts(self, text):
-        # 保留原始文本用于日志/显示
+        # Keep the original text for logging/display
         original_text = text
         text = MarkdownCleaner.clean_markdown(text)
         if self._correct_words_pattern:
             text = self._correct_words_pattern.sub(lambda m: self.correct_words[m.group(0)], text)
         max_repeat_time = 5
         if self.delete_audio_file:
-            # 需要删除文件的直接转为音频数据
+            # When the file is to be deleted, convert directly to audio data
             while max_repeat_time > 0:
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
@@ -218,16 +218,16 @@ class TTSProviderBase(ABC):
                         max_repeat_time -= 1
                 except Exception as e:
                     logger.bind(tag=TAG).warning(
-                        f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                        f"Speech generation failed {5 - max_repeat_time + 1} time(s): {original_text}, error: {e}"
                     )
                     max_repeat_time -= 1
             if max_repeat_time > 0:
                 logger.bind(tag=TAG).info(
-                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次"
+                    f"Speech generation succeeded: {original_text}, retried {5 - max_repeat_time} time(s)"
                 )
             else:
                 logger.bind(tag=TAG).error(
-                    f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                    f"Speech generation failed: {original_text}, please check whether the network or service is working properly"
                 )
             return None
         else:
@@ -238,20 +238,20 @@ class TTSProviderBase(ABC):
                         asyncio.run(self.text_to_speak(text, tmp_file))
                     except Exception as e:
                         logger.bind(tag=TAG).warning(
-                            f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                            f"Speech generation failed {5 - max_repeat_time + 1} time(s): {original_text}, error: {e}"
                         )
-                        # 未执行成功，删除文件
+                        # Not successful, delete the file
                         if os.path.exists(tmp_file):
                             os.remove(tmp_file)
                         max_repeat_time -= 1
 
                 if max_repeat_time > 0:
                     logger.bind(tag=TAG).info(
-                        f"语音生成成功: {original_text}:{tmp_file}，重试{5 - max_repeat_time}次"
+                        f"Speech generation succeeded: {original_text}:{tmp_file}, retried {5 - max_repeat_time} time(s)"
                     )
                 else:
                     logger.bind(tag=TAG).error(
-                        f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                        f"Speech generation failed: {original_text}, please check whether the network or service is working properly"
                     )
 
                 return tmp_file
@@ -266,13 +266,13 @@ class TTSProviderBase(ABC):
     def audio_to_pcm_data_stream(
         self, audio_file_path, callback: Callable[[Any], Any] = None
     ):
-        """音频文件转换为PCM编码"""
+        """Convert an audio file to PCM encoding"""
         return audio_to_data_stream(audio_file_path, is_opus=False, callback=callback, sample_rate=self.conn.sample_rate, opus_encoder=None)
 
     def audio_to_opus_data_stream(
         self, audio_file_path, callback: Callable[[Any], Any] = None
     ):
-        """音频文件转换为Opus编码"""
+        """Convert an audio file to Opus encoding"""
         return audio_to_data_stream(audio_file_path, is_opus=True, callback=callback, sample_rate=self.conn.sample_rate, opus_encoder=self.opus_encoder)
 
     def tts_one_sentence(
@@ -283,14 +283,14 @@ class TTSProviderBase(ABC):
         content_file=None,
         sentence_id=None,
     ):
-        """发送一句话"""
+        """Send one sentence"""
         if not sentence_id:
             if conn.sentence_id:
                 sentence_id = conn.sentence_id
             else:
                 sentence_id = str(uuid.uuid4().hex)
                 conn.sentence_id = sentence_id
-        # 对于单句的文本，进行分段处理
+        # Split single-sentence text into segments
         segments = re.split(r"([。！？!?；;\n])", content_detail)
         for seg in segments:
             self.tts_text_queue.put(
@@ -306,54 +306,54 @@ class TTSProviderBase(ABC):
     async def open_audio_channels(self, conn):
         self.conn = conn
 
-        # 根据conn的sample_rate创建编码器，如果子类已经创建则不覆盖（IndexTTS接口返回为24kHZ-待重采样处理）
+        # Create the encoder based on conn's sample_rate; do not overwrite it if the subclass already created one (the IndexTTS API returns 24kHZ - to be resampled)
         if not hasattr(self, 'opus_encoder') or self.opus_encoder is None:
             self.opus_encoder = opus_encoder_utils.OpusEncoderUtils(
                 sample_rate=conn.sample_rate, channels=1, frame_size_ms=60
             )
 
-        # tts 消化线程
+        # tts consumer thread
         self.tts_priority_thread = threading.Thread(
             target=self.tts_text_priority_thread, daemon=True
         )
         self.tts_priority_thread.start()
 
-        # 音频播放 消化线程
+        # Audio playback consumer thread
         self.audio_play_priority_thread = threading.Thread(
             target=self._audio_play_priority_thread, daemon=True
         )
         self.audio_play_priority_thread.start()
 
     def store_tts_text(self, sentence_id, text):
-        """存储指定 sentence_id 对应的文本，用于流式TTS获取正确的字幕文本
+        """Store the text for the given sentence_id, used by streaming TTS to get the correct subtitle text
 
         Args:
-            sentence_id: 会话ID
-            text: 要存储的文本
+            sentence_id: session ID
+            text: The text to store
         """
         if sentence_id and text:
             self._sentence_text_map[sentence_id] = text
-            # 只保留最近 5 个，防止内存泄漏
+            # Keep only the 5 most recent entries to prevent memory leaks
             if len(self._sentence_text_map) > 5:
                 oldest = next(iter(self._sentence_text_map))
                 del self._sentence_text_map[oldest]
 
     def get_tts_text(self, sentence_id):
-        """获取指定 sentence_id 对应的文本
+        """Get the text for the given sentence_id
 
         Args:
-            sentence_id: 会话ID
+            sentence_id: session ID
 
         Returns:
-            str: 对应的文本，如果不存在返回 None
+            str: The corresponding text, or None if it does not exist
         """
         return self._sentence_text_map.get(sentence_id)
 
     def clear_tts_text(self, sentence_id):
-        """清除指定 sentence_id 的文本
+        """Clear the text for the given sentence_id
 
         Args:
-            sentence_id: 会话ID
+            sentence_id: session ID
         """
         if sentence_id in self._sentence_text_map:
             del self._sentence_text_map[sentence_id]
@@ -365,16 +365,16 @@ class TTSProviderBase(ABC):
             lambda m: self._reverse_words_map[m.group(0)], text
         )
 
-    # 这里默认是非流式的处理方式
-    # 流式处理方式请在子类中重写
+    # The default here is non-streaming processing
+    # Override in a subclass for streaming processing
     def tts_text_priority_thread(self):
         while not self.conn.stop_event.is_set():
             try:
                 message = self.tts_text_queue.get(timeout=1)
                 if self.conn.client_abort:
-                    logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
+                    logger.bind(tag=TAG).info("Received interrupt message, terminating TTS text processing thread")
                     continue
-                # 过滤旧消息：检查sentence_id是否匹配
+                # Filter out old messages: check whether sentence_id matches
                 if message.sentence_id != self.conn.sentence_id:
                     continue
                 if message.sentence_type == SentenceType.FIRST:
@@ -406,12 +406,12 @@ class TTSProviderBase(ABC):
                 continue
             except Exception as e:
                 logger.bind(tag=TAG).error(
-                    f"处理TTS文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
+                    f"Failed to process TTS text: {str(e)}, type: {type(e).__name__}, stack: {traceback.format_exc()}"
                 )
                 continue
 
     def _audio_play_priority_thread(self):
-        # 需要上报的文本和音频列表
+        # Text and audio list to report
         enqueue_text = None
         enqueue_audio = []
         while not self.conn.stop_event.is_set():
@@ -430,15 +430,15 @@ class TTSProviderBase(ABC):
                     continue
 
                 if self.conn.client_abort:
-                    logger.bind(tag=TAG).debug("收到打断信号，跳过当前音频数据")
+                    logger.bind(tag=TAG).debug("Received interrupt signal, skipping current audio data")
                     enqueue_text, enqueue_audio = None, []
                     continue
 
-                # 收到下一个文本开始或会话结束时进行上报
+                # Report when the next text starts or the session ends
                 if sentence_type is not SentenceType.MIDDLE:
                     if self.report_on_last:
-                        # 累积模式：适用于全程只有一个语音流的TTS（如seed-tts-2.0）
-                        # FIRST时只记录文本，音频持续累积，仅在LAST时统一上报
+                        # Accumulate mode: for TTS with a single audio stream throughout (e.g. seed-tts-2.0)
+                        # On FIRST only record the text; audio keeps accumulating and is reported all at once only on LAST
                         if text:
                             enqueue_text = text
                         if sentence_type == SentenceType.LAST:
@@ -446,24 +446,24 @@ class TTSProviderBase(ABC):
                             enqueue_audio = []
                             enqueue_text = None
                     else:
-                        # 非累积模式：每个句子分别上报
+                        # Non-accumulate mode: report each sentence separately
                         if enqueue_text is not None:
                             enqueue_tts_report(self.conn, enqueue_text, enqueue_audio)
                         enqueue_audio = []
                         enqueue_text = text
 
-                # 收集上报音频数据
+                # Collect audio data for reporting
                 if isinstance(audio_datas, bytes):
                     enqueue_audio.append(audio_datas)
 
-                # 发送音频
+                # Send audio
                 future = asyncio.run_coroutine_threadsafe(
                     sendAudioMessage(self.conn, sentence_type, audio_datas, text, sentence_id),
                     self.conn.loop,
                 )
                 future.result()
 
-                # 记录输出和报告
+                # Record output and report
                 if self.conn.max_output_size > 0 and text:
                     add_device_output(self.conn.headers.get("device-id"), len(text))
 
@@ -477,12 +477,12 @@ class TTSProviderBase(ABC):
         pass
 
     async def close(self):
-        """资源清理方法"""
+        """Resource cleanup method"""
         self._sentence_text_map.clear()
         if hasattr(self, "ws") and self.ws:
             await self.ws.close()
 
-    # 右引号/右括号，以及它们对应的左侧符号
+    # Closing quotes/brackets and their corresponding opening symbols
     _QUOTE_PAIRS = (
         ("「", "」"),
         ("『", "』"),
@@ -497,21 +497,21 @@ class TTSProviderBase(ABC):
         ("［", "］"),
         ("[", "]"),
     )
-    # 注意：“（U+201C）有双重语义：中文里是开引号（对应 ”），
-    # 德语 „…“ 里是闭引号；二者冲突时计数法无法兼顾，
-    # 德语句子的切分只能靠“不平衡就顺延”保守处理（最终由 flush 兜底）。
+    # Note: “ (U+201C) has two meanings: in Chinese it is an opening quote (paired with ”),
+    # in German „…“ it is a closing quote; when the two conflict the counting method cannot handle both,
+    # so German sentences can only be split conservatively by "defer when unbalanced" (flush is the final fallback).
     _CLOSERS = '」』”》）"»“】〉］]'
     _QUOTE_CHARS = "".join(ch for pair in _QUOTE_PAIRS for ch in pair)
 
     @classmethod
     def _quote_safe_cut(cls, text: str, pos: int, punctuations) -> int:
-        """避免在引号内切分（如 「わぁ！」って / “好！”他说）。
+        """Avoid splitting inside quotes (e.g. 「わぁ！」って / “好！”他说).
 
-        候选位置之后紧跟的右引号和句末标点一并带走；若候选位于未闭合的引号内，
-        或右引号后句子还在继续，则顺延到下一个标点；都不安全时返回 -1，等待更多文本。
+        Closing quotes and sentence-ending punctuation right after the candidate position are taken along; if the candidate is inside an unclosed quote,
+        or the sentence continues after the closing quote, defer to the next punctuation mark; return -1 when none is safe and wait for more text.
         """
         if not any(ch in cls._QUOTE_CHARS for ch in text):
-            # 全文不含引号/括号：不存在未闭合引号，右引号也无需携带，候选位置必然安全
+            # The text has no quotes/brackets: there can be no unclosed quote and no closing quote to carry, so the candidate position is always safe
             return pos
         candidates = [pos] + [
             i for i, ch in enumerate(text) if i > pos and ch in punctuations
@@ -526,7 +526,7 @@ class TTSProviderBase(ABC):
                     carried_closer = True
                 end += 1
             segment = text[:end]
-            # 前后配对的引号（「」等）用计数差检测；前后同符的引号（"）用奇偶检测
+            # Paired quotes (「」 etc.) are checked by count difference; quotes with identical open/close characters (") are checked by parity
             balanced = True
             for opener, closer in cls._QUOTE_PAIRS:
                 n_open = segment.count(opener)
@@ -540,25 +540,25 @@ class TTSProviderBase(ABC):
             if not balanced:
                 continue
             if carried_closer and (end == len(text) or not text[end].isspace()):
-                # 右引号之后句子还在继续（「…」って、“…”他说），或暂时看不到后文
+                # The sentence continues after the closing quote (「…」って、“…”他说), or the following text is not visible yet
                 continue
             return end - 1
         return -1
 
     def _get_segment_text(self) -> Optional[str]:
-        # 合并当前全部文本并处理未分割部分
+        # Merge all current text and process the unsplit part
         full_text = "".join(self.tts_text_buff)
-        current_text = full_text[self.processed_chars :]  # 从未处理的位置开始
+        current_text = full_text[self.processed_chars :]  # Start from the unprocessed position
         last_punct_pos = -1
 
-        # 根据是否是第一句话选择不同的标点符号集合
+        # Choose a different punctuation set depending on whether this is the first sentence
         punctuations_to_use = (
             self.first_sentence_punctuations
             if self.is_first_sentence
             else self.punctuations
         )
 
-        # 取每种标点最后出现位置的最早者作为切分点（与逐个 rfind 再取最小值等价）
+        # Use the earliest of each punctuation mark's last occurrence as the split point (equivalent to rfind on each and taking the minimum)
         last_seen = {}
         for i, ch in enumerate(current_text):
             if ch in punctuations_to_use:
@@ -575,16 +575,16 @@ class TTSProviderBase(ABC):
             segment_text = textUtils.get_string_no_punctuation_or_emoji(
                 segment_text_raw
             )
-            self.processed_chars += len(segment_text_raw)  # 更新已处理字符位置
+            self.processed_chars += len(segment_text_raw)  # Update the processed character position
 
-            # 如果是第一句话，在找到第一个逗号后，将标志设置为False
+            # If this is the first sentence, set the flag to False after the first comma is found
             if self.is_first_sentence:
                 self.is_first_sentence = False
 
             return segment_text
         elif self.tts_stop_request and current_text:
             segment_text = current_text
-            self.is_first_sentence = True  # 重置标志
+            self.is_first_sentence = True  # Reset the flag
             return segment_text
         else:
             return None
@@ -592,11 +592,11 @@ class TTSProviderBase(ABC):
     def _process_audio_file_stream(
         self, tts_file, callback: Callable[[Any], Any]
     ) -> None:
-        """处理音频文件并转换为指定格式
+        """Process an audio file and convert it to the specified format
 
         Args:
-            tts_file: 音频文件路径
-            callback: 文件处理函数
+            tts_file: Audio file path
+            callback: File processing function
         """
         if tts_file.endswith(".p3"):
             p3.decode_opus_from_file_stream(tts_file, callback=callback)
@@ -622,10 +622,10 @@ class TTSProviderBase(ABC):
     def _process_remaining_text_stream(
         self, opus_handler: Callable[[bytes], None] = None
     ):
-        """处理剩余的文本并生成语音
+        """Process the remaining text and generate speech
 
         Returns:
-            bool: 是否成功处理了文本
+            bool: Whether the text was processed successfully
         """
         full_text = "".join(self.tts_text_buff)
         remaining_text = full_text[self.processed_chars :]
@@ -638,20 +638,20 @@ class TTSProviderBase(ABC):
         return False
 
     def _apply_percentage_params(self, config):
-        """根据子类定义的 TTS_PARAM_CONFIG 批量应用百分比参数"""
+        """Apply percentage parameters in bulk according to the TTS_PARAM_CONFIG defined by the subclass"""
         for config_key, attr_name, min_val, max_val, base_val, transform in self.TTS_PARAM_CONFIG:
             if config_key in config:
                 val = convert_percentage_to_range(config[config_key], min_val, max_val, base_val)
                 setattr(self, attr_name, transform(val) if transform else val)
 
     def _match_stream_text(self, text):
-        """流式文本滑动窗口匹配，用于处理跨分片的替换词
+        """Sliding-window matching for streaming text, used to handle replacement words that span chunks
 
         Args:
-            text: 输入的文本片段
+            text: The input text segment
 
         Returns:
-            tuple: (确定的文本列表, 剩余待匹配的前缀)
+            tuple: (list of confirmed text, remaining prefix pending a match)
         """
         if not self.correct_words or not text:
             return [text] if text else [], ""
@@ -663,21 +663,21 @@ class TTSProviderBase(ABC):
         while i < len(text):
             char = text[i]
 
-            # 尝试：pending + 当前字符 是否能匹配替换词
+            # Try: whether pending + the current character can match a replacement word
             test_text = pending + char
 
             matched = False
-            # 遍历可能匹配的替换词
+            # Iterate over the replacement words that may match
             candidates = self._words_by_first_char.get(pending[0], []) if pending else self._words_by_first_char.get(char, [])
             for key in candidates:
                 if test_text == key:
-                    # 完整匹配，替换后发送
+                    # Full match: replace, then send
                     result.append(self.correct_words[key])
                     pending = ""
                     matched = True
                     break
                 elif key.startswith(test_text):
-                    # 是替换词的前缀，继续等待
+                    # It is a prefix of a replacement word; keep waiting
                     pending = test_text
                     matched = True
                     break
@@ -686,12 +686,12 @@ class TTSProviderBase(ABC):
                 i += 1
                 continue
 
-            # 没有匹配到更长的词，pending 的内容确定可以发送
+            # No longer word matched; the pending content is confirmed and can be sent
             if pending:
                 result.append(pending)
                 pending = ""
 
-            # 检查当前字符是否是某个替换词的开头
+            # Check whether the current character is the start of a replacement word
             if char in self._words_by_first_char:
                 pending = char
             else:
@@ -702,8 +702,8 @@ class TTSProviderBase(ABC):
         return result, pending
 
     def reset_stream_state(self):
-        """重置流式处理状态，用于会话开始时清理残留状态"""
+        """Reset the streaming state, used to clear leftover state when a session starts"""
         self._pending_prefix = ""
-        # 清理编码器中未满一帧的PCM残留
+        # Clear the PCM remainder shorter than one frame from the encoder
         if getattr(self, "opus_encoder", None):
             self.opus_encoder.reset_state()

@@ -61,7 +61,7 @@ class FakeConn:
 
 
 # ---------------------------------------------------------------------------
-# 城市查询
+# City lookup
 # ---------------------------------------------------------------------------
 
 
@@ -102,7 +102,7 @@ async def test_city_lookup_returns_none_on_empty_location(fake_http):
 
 
 async def test_city_lookup_searches_all_cities(fake_http):
-    """不带 range 参数就是全球检索，写死 cn 会查不到境外城市。"""
+    """Without the range parameter the lookup is global; hard-coding cn would miss cities outside China."""
     fake_http.responder = lambda url, params: FakeResponse(
         payload={"code": "200", "location": [{"id": "101210101", "name": "杭州"}]}
     )
@@ -117,7 +117,7 @@ async def test_city_lookup_searches_all_cities(fake_http):
 
 
 # ---------------------------------------------------------------------------
-# 天气数据
+# Weather data
 # ---------------------------------------------------------------------------
 
 
@@ -165,7 +165,7 @@ async def test_weather_data_returns_both_when_all_succeed(fake_http):
 
 
 async def test_weather_page_follows_redirects(fake_http):
-    """旧形态 fxLink 会 302，不跟随重定向就拿不到内容。"""
+    """The old-style fxLink returns a 302; the content cannot be fetched without following redirects."""
     fake_http.responder = lambda url, params: FakeResponse(text="<html></html>")
 
     await weather_module.fetch_weather_page("https://www.qweather.com/weather/101210101.html")
@@ -180,12 +180,12 @@ def test_weather_report_keeps_pressure_and_precipitation():
         {"daily": []},
     )
 
-    assert "气压: 1003百帕" in report
-    assert "降水量: 0.0毫米" in report
+    assert "Pressure: 1003 hPa" in report
+    assert "Precipitation: 0.0 mm" in report
 
 
 async def test_weather_report_keeps_pressure_and_precipitation_in_flow(monkeypatch):
-    """走完整条链路时报告里也要有气压和降水量。"""
+    """The report must also contain pressure and precipitation when the whole pipeline runs."""
     monkeypatch.setattr(
         weather_module,
         "fetch_city_info",
@@ -200,15 +200,15 @@ async def test_weather_report_keeps_pressure_and_precipitation_in_flow(monkeypat
     )
 
     response = await weather_module.get_weather(
-        FakeConn({"get_weather": {"api_key": "k", "api_host": "h"}}), location="气压测试市"
+        FakeConn({"get_weather": {"api_key": "k", "api_host": "h"}}), location="Pressure Test City"
     )
 
-    assert "气压: 1003百帕" in response.result
-    assert "降水量: 0.0毫米" in response.result
+    assert "Pressure: 1003 hPa" in response.result
+    assert "Precipitation: 0.0 mm" in response.result
 
 
 async def test_missing_fxlink_does_not_call_web_fallback(monkeypatch):
-    """城市信息里没有 fxLink 时不该去抓网页，直接报失败。"""
+    """When the city info has no fxLink, do not fetch the web page; report failure directly."""
     called = []
 
     async def fake_city_info(*args, **kwargs):
@@ -226,15 +226,15 @@ async def test_missing_fxlink_does_not_call_web_fallback(monkeypatch):
     monkeypatch.setattr(weather_module, "fetch_weather_page", fake_page)
 
     response = await weather_module.get_weather(
-        FakeConn({"get_weather": {"api_key": "k", "api_host": "h"}}), location="无链接市"
+        FakeConn({"get_weather": {"api_key": "k", "api_host": "h"}}), location="No Link City"
     )
 
     assert called == []
-    assert response.response == "请求天气数据失败"
+    assert response.response == "Failed to request weather data"
 
 
 async def test_city_not_found_message_does_not_blame_the_place_name(monkeypatch):
-    """key 失效和城市找不到都落到这句话，不能让用户去核对地名。"""
+    """An invalid key and a city that cannot be found both end in this sentence; the user must not be told to check the place name."""
 
     async def fake_city_info(*args, **kwargs):
         return None
@@ -242,15 +242,15 @@ async def test_city_not_found_message_does_not_blame_the_place_name(monkeypatch)
     monkeypatch.setattr(weather_module, "fetch_city_info", fake_city_info)
 
     response = await weather_module.get_weather(
-        FakeConn({"get_weather": {"api_key": "k", "api_host": "h"}}), location="随便什么市"
+        FakeConn({"get_weather": {"api_key": "k", "api_host": "h"}}), location="Any City"
     )
 
-    assert "请确认地点是否正确" not in response.result
-    assert "天气服务不可用" in response.result
+    assert "Please confirm that the location is correct" not in response.result
+    assert "weather service unavailable" in response.result
 
 
 # ---------------------------------------------------------------------------
-# 新闻接口
+# News API
 # ---------------------------------------------------------------------------
 
 
@@ -293,9 +293,9 @@ def test_news_api_url_forms(configured_url, expected_url, expected_params):
 
 
 async def test_news_api_url_forms_are_actually_requested(fake_http):
-    """配置里写了 id 也不能拼出脏串。"""
+    """Even with an id written in the config, no dirty string may be assembled."""
     fake_http.responder = lambda url, params: FakeResponse(
-        payload={"items": [{"id": "1", "title": "标题"}]}
+        payload={"items": [{"id": "1", "title": "Title"}]}
     )
     conn = FakeConn({"get_news_from_newsnow": {"url": "https://newsnow.busiyi.world/api/s?id=thepaper"}})
 
@@ -321,12 +321,12 @@ async def test_news_items_without_title_are_filtered_out(fake_http):
 
 async def test_news_items_keep_valid_entries(fake_http):
     fake_http.responder = lambda url, params: FakeResponse(
-        payload={"items": [{"id": "1", "title": ""}, {"id": "2", "title": "有效标题"}]}
+        payload={"items": [{"id": "1", "title": ""}, {"id": "2", "title": "Valid title"}]}
     )
 
     items = await news_module.fetch_news_from_api(FakeConn(), "thepaper")
 
-    assert items == [{"id": "2", "title": "有效标题"}]
+    assert items == [{"id": "2", "title": "Valid title"}]
 
 
 def _async_value(value):

@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 TAG = __name__
 logger = setup_logging()
 
-# 需要禁用思考模式的平台域名及其对应参数（默认关闭思考模式）
+# Platform domains that need thinking mode disabled, with their parameters (thinking mode is off by default)
 THINKING_DISABLED_DOMAINS = {
     "aliyuncs.com": {"enable_thinking": False},
     "deepseek.com": {"thinking": {"type": "disabled"}},
@@ -19,7 +19,7 @@ THINKING_DISABLED_DOMAINS = {
     "modelarts-maas.com": {"thinking": {"type": "disabled"}},
 }
 
-# 域名规则的模型名豁免表: 强制思考模型不接受该参数注入(如 MaaS glm-5.3 传 thinking 必 400)
+# Model-name exemptions from the domain rules: forced-thinking models reject this injected parameter (e.g. MaaS glm-5.3 always returns 400 when thinking is passed)
 THINKING_DISABLED_MODEL_EXCLUSIONS = {
     "modelarts-maas.com": ("glm-5.3",),
 }
@@ -28,7 +28,7 @@ THINKING_DISABLED_MODEL_EXCLUSIONS = {
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
         self.model_name = config.get("model_name")
-        # 可选实例级思考强度: off/disabled/none/disable | low/medium/high | 空/其他=按域名默认
+        # Optional per-instance thinking effort: off/disabled/none/disable | low/medium/high | empty/other = domain default
         self.thinking_mode = str(config.get("thinking") or "").strip().lower()
         self.api_key = config.get("api_key")
         if "base_url" in config:
@@ -38,7 +38,7 @@ class LLMProvider(LLMProviderBase):
         
         timeout_config = config.get("timeout")
         if isinstance(timeout_config, dict):
-            # 细粒度超时配置
+            # Fine-grained timeout configuration
             custom_timeout = httpx.Timeout(
                 pool=timeout_config.get("pool", 2.0),
                 connect=timeout_config.get("connect", 3.0),
@@ -46,10 +46,10 @@ class LLMProvider(LLMProviderBase):
                 read=timeout_config.get("read", 60.0)
             )
         elif isinstance(timeout_config, (int, float)) and timeout_config > 0:
-            # 兼容旧的单一超时配置（整数或浮点数）
+            # Backward compatible with the old single timeout setting (int or float)
             custom_timeout = httpx.Timeout(timeout_config)
         else:
-            # 未配置或配置无效，使用默认值
+            # Not configured or invalid; use the defaults
             custom_timeout = httpx.Timeout(300)
 
         param_defaults = {
@@ -71,7 +71,7 @@ class LLMProvider(LLMProviderBase):
                 setattr(self, param, None)
 
         logger.debug(
-            f"意图识别参数初始化: {self.temperature}, {self.max_tokens}, {self.top_p}, {self.frequency_penalty}"
+            f"Intent recognition parameters initialized: {self.temperature}, {self.max_tokens}, {self.top_p}, {self.frequency_penalty}"
         )
 
         model_key_msg = check_model_key("LLM", self.api_key)
@@ -81,26 +81,26 @@ class LLMProvider(LLMProviderBase):
 
     @staticmethod
     def normalize_dialogue(dialogue):
-        """自动修复 dialogue 中缺失 content 的消息"""
+        """Automatically fix messages in dialogue that are missing content"""
         for msg in dialogue:
             if "role" in msg and "content" not in msg:
                 msg["content"] = ""
         return dialogue
 
     def _apply_thinking_disabled(self, request_params: dict):
-        """思考模式控制: 实例配置(thinking)优先, 否则按域名默认表"""
+        """Thinking mode control: instance config (thinking) takes precedence, otherwise the domain default table"""
         mode = getattr(self, "thinking_mode", "")
         if mode in ("keep", "passthrough", "default"):
-            # 不干预: 既不发 thinking 参数也不查域名表(适用于强制思考/拒绝该参数的模型, 如 MaaS glm-5.3)
+            # No intervention: neither send the thinking parameter nor consult the domain table (for models that force thinking or reject the parameter, e.g. MaaS glm-5.3)
             return
         if mode in ("off", "disabled", "none", "disable"):
             request_params.setdefault("extra_body", {}).update({"thinking": {"type": "disabled"}})
-            logger.bind(tag=TAG).info("思考强度=off: 已禁用思考模式(实例配置)")
+            logger.bind(tag=TAG).info("Thinking effort=off: thinking mode disabled (instance config)")
             return
         if mode in ("low", "medium", "high"):
             request_params.setdefault("extra_body", {}).update(
                 {"reasoning_effort": mode, "thinking": {"type": "enabled"}})
-            logger.bind(tag=TAG).info(f"思考强度={mode}: reasoning_effort 已设置(实例配置)")
+            logger.bind(tag=TAG).info(f"Thinking effort={mode}: reasoning_effort set (instance config)")
             return
         parsed_url = urlparse(self.base_url)
         domain = parsed_url.netloc
@@ -111,10 +111,10 @@ class LLMProvider(LLMProviderBase):
             exclusions = THINKING_DISABLED_MODEL_EXCLUSIONS.get(disabled_domain, ())
             if any(ex in model_name for ex in exclusions):
                 logger.bind(tag=TAG).info(
-                    f"域名 {domain} 命中禁思考规则, 但模型 {self.model_name} 强制思考且拒绝该参数, 跳过注入")
+                    f"Domain {domain} matches the disable-thinking rule, but model {self.model_name} forces thinking and rejects the parameter; skipping injection")
                 break
             request_params.setdefault("extra_body", {}).update(params)
-            logger.bind(tag=TAG).info(f"为域名 {domain} 禁用思考模式，参数: {params}")
+            logger.bind(tag=TAG).info(f"Disabled thinking mode for domain {domain}, parameters: {params}")
             break
 
     def response(self, session_id, dialogue, **kwargs):
@@ -126,7 +126,7 @@ class LLMProvider(LLMProviderBase):
             "stream": True,
         }
 
-        # 添加可选参数,只有当参数不为None时才添加
+        # Add optional parameters only when they are not None
         optional_params = {
             "max_tokens": kwargs.get("max_tokens", self.max_tokens),
             "temperature": kwargs.get("temperature", self.temperature),
@@ -138,7 +138,7 @@ class LLMProvider(LLMProviderBase):
             if value is not None:
                 request_params[key] = value
 
-        # 禁用思考模式
+        # Disable thinking mode
         self._apply_thinking_disabled(request_params)
 
         responses = self.client.chat.completions.create(**request_params)
@@ -184,7 +184,7 @@ class LLMProvider(LLMProviderBase):
             if value is not None:
                 request_params[key] = value
 
-        # 禁用思考模式
+        # Disable thinking mode
         self._apply_thinking_disabled(request_params)
 
         stream = self.client.chat.completions.create(**request_params)
@@ -199,9 +199,9 @@ class LLMProvider(LLMProviderBase):
                 elif isinstance(getattr(chunk, "usage", None), CompletionUsage):
                     usage_info = getattr(chunk, "usage", None)
                     logger.bind(tag=TAG).info(
-                        f"Token 消耗：输入 {getattr(usage_info, 'prompt_tokens', '未知')}，"
-                        f"输出 {getattr(usage_info, 'completion_tokens', '未知')}，"
-                        f"共计 {getattr(usage_info, 'total_tokens', '未知')}"
+                        f"Token usage: input {getattr(usage_info, 'prompt_tokens', 'unknown')}, "
+                        f"output {getattr(usage_info, 'completion_tokens', 'unknown')}, "
+                        f"total {getattr(usage_info, 'total_tokens', 'unknown')}"
                     )
         finally:
             stream.close()
